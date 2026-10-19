@@ -22,7 +22,6 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ],
