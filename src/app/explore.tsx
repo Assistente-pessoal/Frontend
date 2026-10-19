@@ -1,180 +1,82 @@
-import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScrollView, StyleSheet, Text, useColorScheme, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ExternalLink } from '@/components/external-link';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Collapsible } from '@/components/ui/collapsible';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Colors, Spacing } from '@/constants/theme';
 
-export default function TabTwoScreen() {
-  const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
-  };
-  const theme = useTheme();
+const tips = [
+  {
+    number: '01',
+    title: 'Fale naturalmente',
+    description: 'Diga o que você precisa fazer e, quando souber, inclua o dia e o horário. Ex.: “Me lembre de estudar para a prova amanhã às 19h”.',
+  },
+  {
+    number: '02',
+    title: 'Revise antes de salvar',
+    description: 'A transcrição aparece em um campo editável. Corrija nomes, datas ou palavras que o reconhecimento não entendeu.',
+  },
+  {
+    number: '03',
+    title: 'Confirme a conexão',
+    description: 'O texto é enviado para a agenda-api, que consulta o serviço VOX e armazena o lembrete no MongoDB.',
+  },
+  {
+    number: '04',
+    title: 'Permita notificações',
+    description: 'Quando data e horário futuros forem identificados, o app tenta agendar uma notificação local. Permita notificações nas configurações do aparelho.',
+  },
+];
 
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
+export default function HelpScreen() {
+  const scheme = useColorScheme();
+  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  const { width } = useWindowDimensions();
+  const isWideLayout = width >= 820;
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Explore</ThemedText>
-          <ThemedText style={styles.centerText} themeColor="textSecondary">
-            This starter app includes example{'\n'}code to help you get started.
-          </ThemedText>
-
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.linkButton}>
-                <ThemedText type="link">Expo documentation</ThemedText>
-                <SymbolView
-                  tintColor={theme.text}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
-                  size={12}
-                />
-              </ThemedView>
-            </Pressable>
-          </ExternalLink>
-        </ThemedView>
-
-        <ThemedView style={styles.sectionsWrapper}>
-          <Collapsible title="File-based routing">
-            <ThemedText type="small">
-              This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
-              <ThemedText type="code">src/app/explore.tsx</ThemedText>
-            </ThemedText>
-            <ThemedText type="small">
-              The layout file in <ThemedText type="code">src/app/_layout.tsx</ThemedText> sets up
-              the tab navigator.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/router/introduction">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
-
-          <Collapsible title="Android, iOS, and web support">
-            <ThemedView type="backgroundElement" style={styles.collapsibleContent}>
-              <ThemedText type="small">
-                You can open this project on Android, iOS, and the web. To open the web version,
-                press <ThemedText type="smallBold">w</ThemedText> in the terminal running this
-                project.
-              </ThemedText>
-              <Image
-                source={require('@/assets/images/tutorial-web.png')}
-                style={styles.imageTutorial}
-              />
-            </ThemedView>
-          </Collapsible>
-
-          <Collapsible title="Images">
-            <ThemedText type="small">
-              For static images, you can use the <ThemedText type="code">@2x</ThemedText> and{' '}
-              <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
-              screen densities.
-            </ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
-            <ExternalLink href="https://reactnative.dev/docs/images">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
-
-          <Collapsible title="Light and dark mode components">
-            <ThemedText type="small">
-              This template has light and dark mode support. The{' '}
-              <ThemedText type="code">useColorScheme()</ThemedText> hook lets you inspect what the
-              user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
-
-          <Collapsible title="Animations">
-            <ThemedText type="small">
-              This template includes an example of an animated component. The{' '}
-              <ThemedText type="code">src/components/ui/collapsible.tsx</ThemedText> component uses
-              the powerful <ThemedText type="code">react-native-reanimated</ThemedText> library to
-              animate opening this hint.
-            </ThemedText>
-          </Collapsible>
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
-      </ThemedView>
-    </ScrollView>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingHorizontal: width < 380 ? 14 : isWideLayout ? 32 : 20, paddingBottom: 124, maxWidth: isWideLayout ? 980 : 700 }]} showsVerticalScrollIndicator={false}>
+        <Text style={[styles.kicker, { color: '#635BDB' }]}>GUIA RÁPIDO</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Como usar o VOX</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          Quatro passos para transformar uma frase em um lembrete.
+        </Text>
+        <View style={[styles.steps, isWideLayout && styles.stepsWide]}>
+          {tips.map((tip) => (
+            <View key={tip.number} style={[styles.card, isWideLayout && styles.cardWide, { backgroundColor: colors.backgroundElement }]}>
+              <View style={styles.numberCircle}>
+                <Text style={styles.numberText}>{tip.number}</Text>
+              </View>
+              <View style={styles.cardContent}>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>{tip.title}</Text>
+                <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
+                  {tip.description}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+        <Text style={[styles.note, { color: colors.textSecondary }]}>
+          Observação: a transcrição no celular é configurada para usar reconhecimento no próprio dispositivo. No Android, o idioma português offline precisa estar instalado. A versão inicial do microserviço interpreta comandos com regras locais; um modelo de IA real ainda precisa ser configurado separadamente.
+        </Text>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  container: {
-    maxWidth: MaxContentWidth,
-    flexGrow: 1,
-  },
-  titleContainer: {
-    gap: Spacing.three,
-    alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
-  },
-  centerText: {
-    textAlign: 'center',
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  linkButton: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-    justifyContent: 'center',
-    gap: Spacing.one,
-    alignItems: 'center',
-  },
-  sectionsWrapper: {
-    gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-  },
-  collapsibleContent: {
-    alignItems: 'center',
-  },
-  imageTutorial: {
-    width: '100%',
-    aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
-    marginTop: Spacing.two,
-  },
-  imageReact: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
-  },
+  safeArea: { flex: 1 },
+  container: { flexGrow: 1, paddingVertical: 24, gap: 12, width: '100%', alignSelf: 'center' },
+  kicker: { fontSize: 11, fontWeight: '800', letterSpacing: 1.4, marginTop: Spacing.two },
+  title: { fontSize: 30, fontWeight: '800', letterSpacing: -0.6 },
+  subtitle: { fontSize: 14, lineHeight: 22, marginBottom: Spacing.two },
+  steps: { gap: 12 },
+  stepsWide: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'stretch' },
+  card: { borderRadius: 20, padding: Spacing.three, flexDirection: 'row', gap: 13, width: '100%' },
+  cardWide: { width: '48%', minWidth: 300, flexGrow: 1 },
+  numberCircle: { width: 36, height: 36, borderRadius: 13, backgroundColor: '#635BDB', alignItems: 'center', justifyContent: 'center' },
+  numberText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  cardContent: { flex: 1, gap: 6 },
+  cardTitle: { fontSize: 16, fontWeight: '700' },
+  cardDescription: { fontSize: 13, lineHeight: 20 },
+  note: { fontSize: 12, lineHeight: 18, paddingTop: Spacing.three },
 });

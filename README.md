@@ -1,56 +1,43 @@
-# Welcome to your Expo app 👋
+# VOX — Frontend Expo
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Frontend mobile do módulo de transcrição e criação de lembretes por voz.
 
-## Get started
+## Requisitos
 
-1. Install dependencies
+- Node.js e npm.
+- Backend `agenda-api` em execução na porta `8080`.
+- Microserviço Python `vox-ai-service` em execução na porta `8000`.
+- MongoDB em execução para persistir os lembretes.
+- Android Studio/SDK para gerar e executar o app Android.
+
+## Configuração inicial
+
+1. Instale as dependências com `npm install`.
+2. Copie `.env.example` para `.env` e configure `EXPO_PUBLIC_API_URL`:
+   - Emulador Android: `http://10.0.2.2:8080`.
+   - Celular físico: `http://IP-DA-SUA-MÁQUINA:8080`. O computador e o celular precisam estar na mesma rede e a porta 8080 liberada no firewall.
+3. Este projeto usa `expo-speech-recognition` e `expo-notifications`. O `package-lock.json` incluído precisa ser sincronizado com as dependências adicionadas. Execute `npm install` primeiro; não use `npm ci` até o lockfile ter sido regenerado e salvo no Git.
+4. Gere o projeto nativo e instale o build de desenvolvimento:
 
    ```bash
-   npm install
+   npx expo prebuild
+   npx expo run:android
    ```
 
-2. Start the app
+   O Expo Go padrão não contém o módulo nativo de reconhecimento de voz. Não use apenas `npx expo start` para validar o reconhecimento de voz Android. No navegador, use `npx expo start --web`; notificações locais nativas são testadas no app Android/iOS, não no browser.
 
-   ```bash
-   npx expo start
-   ```
+## Uso
 
-In the output, you'll find options to open the app in a
+1. Toque em **Começar a falar** e conceda acesso ao microfone.
+2. Diga o lembrete em português.
+3. Revise ou corrija a transcrição no campo editável.
+4. Toque em **Salvar lembrete**. O app envia somente `{ "text": "..." }` para `POST /api/vox/transcriptions`.
+5. Caso a interpretação retorne uma data e um horário futuros, o app tenta agendar uma notificação local. Se o usuário negar notificações, o lembrete continua salvo na API.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Reconhecimento offline
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+Em dispositivos móveis, a captura está configurada com `requiresOnDeviceRecognition` para priorizar processamento de voz no próprio aparelho. No Android, o idioma português precisa estar instalado no serviço de reconhecimento de voz. Se o pacote não estiver disponível, o app exibe um aviso e mantém a opção de digitar o lembrete.
 
-## Get a fresh project
+## Configuração de rede para desenvolvimento
 
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+O arquivo `app.json` habilita tráfego HTTP sem TLS para facilitar testes com o backend local. Isso é apenas para desenvolvimento: em produção, use HTTPS e desative `android.usesCleartextTraffic`.

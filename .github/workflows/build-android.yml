@@ -1,0 +1,46 @@
+
+name: Gerar APK Android - VOX
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - main
+    paths:
+      - "**"
+
+jobs:
+  build-android:
+    name: Compilar APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar código do repositório
+        uses: actions/checkout@v5
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Configurar Expo e EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Verificar projeto Expo
+        run: npx expo-doctor
+
+      - name: Gerar APK
+        run: |
+          eas build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --no-wait
