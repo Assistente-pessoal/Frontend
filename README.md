@@ -40,4 +40,4 @@ Em dispositivos móveis, a captura está configurada com `requiresOnDeviceRecogn
 
 ## Configuração de rede para desenvolvimento
 
-O arquivo `app.json` habilita tráfego HTTP sem TLS para facilitar testes com o backend local. Isso é apenas para desenvolvimento: em produção, use HTTPS e desative `android.usesCleartextTraffic`.
+Os builds Android usam HTTPS por padrão. Para testar o backend local sem TLS em um dispositivo Android, use um túnel HTTPS ou configure uma solução nativa específica para desenvolvimento; em produção, use HTTPS.
