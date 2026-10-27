@@ -13,22 +13,28 @@ export type VoxInterpretation = {
 
 const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
 const configuredUrlIsAndroidEmulatorAlias = /^https?:\/\/10\.0\.2\.2(?::|\/|$)/i.test(configuredApiUrl || '');
-// A common mistake is copying the Android-emulator URL into .env and then
-// launching the web app. That host alias does not point to the PC in a browser.
+// Use o mesmo endpoint publicado configurado originalmente no eas.json.
+// EXPO_PUBLIC_API_URL continua disponível para sobrescrever o destino em desenvolvimento local.
+const DEFAULT_VOX_API_URL = 'https://vox-backend-latest.onrender.com';
 const platformConfiguredUrl =
   Platform.OS !== 'android' && configuredUrlIsAndroidEmulatorAlias ? undefined : configuredApiUrl;
 
 /**
- * Browser/iOS simulator: localhost points to the development computer.
- * Android emulator: 10.0.2.2 is the host machine alias.
- * Physical Android device: set EXPO_PUBLIC_API_URL to the computer LAN IP.
+ * Por padrão, o app se conecta à Agenda API publicada, sem exigir um .env.
+ * Para testar um backend local, defina EXPO_PUBLIC_API_URL no arquivo .env.
  */
-export const VOX_API_BASE_URL = (
-  platformConfiguredUrl ||
-  (Platform.OS === 'android' ? 'http://10.0.2.2:8080' : 'http://localhost:8080')
-).replace(/\/+$/, '');
+export const VOX_API_BASE_URL = (platformConfiguredUrl || DEFAULT_VOX_API_URL).replace(/\/+$/, '');
 
-const API_TIMEOUT_MS = 20_000;
+// Render pode demorar a retomar a instância em repouso; não classificar como offline após 20 s.
+const API_TIMEOUT_MS = 75_000;
+
+/** HTTP veio do servidor: a conexão existe, embora a operação possa ter falhado. */
+export class VoxApiHttpError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+    this.name = 'VoxApiHttpError';
+  }
+}
 
 type ApiPayload = Record<string, unknown> | string | null;
 
@@ -61,10 +67,10 @@ function httpErrorMessage(status: number, payload: ApiPayload): string {
     return serverMessage || 'A API recusou a requisição (401/403). Confira a configuração de segurança do backend.';
   }
   if (status === 404) {
-    return serverMessage || 'A rota /api/vox/transcriptions não foi encontrada. Confira se o backend atualizado está em execução na porta 8080.';
+    return serverMessage || 'A rota /api/vox/transcriptions não foi encontrada. Confira se a versão publicada da Agenda API contém o endpoint VOX.';
   }
   if (status === 502 || status === 503 || status === 504) {
-    return serverMessage || 'A agenda-api não conseguiu acessar o serviço Python. Confira se o serviço VOX está ativo na porta 8000.';
+    return serverMessage || 'A API respondeu, mas o serviço de interpretação pode estar indisponível. Tente novamente ou verifique os logs do backend.';
   }
   return serverMessage || `A agenda-api respondeu com HTTP ${status}.`;
 }
@@ -86,13 +92,14 @@ async function requestApi(path: string, init: RequestInit = {}): Promise<{ respo
       throw new Error(`A agenda-api não respondeu em ${API_TIMEOUT_MS / 1000} segundos (${VOX_API_BASE_URL}).`);
     }
 
-    const environmentHint = Platform.OS === 'android'
-      ? 'No emulador Android use http://10.0.2.2:8080; em celular físico use o IPv4 do computador.'
-      : 'No navegador do mesmo computador, use http://localhost:8080 no arquivo .env.';
+    const environmentHint = VOX_API_BASE_URL.startsWith('https://')
+      ? 'Confira sua conexão com a internet, a disponibilidade do serviço hospedado e a política CORS do backend.'
+      : Platform.OS === 'android'
+        ? 'No emulador Android use http://10.0.2.2:8080; em celular físico use o IPv4 do computador.'
+        : 'No navegador do mesmo computador, use http://localhost:8080 no arquivo .env.';
 
     throw new Error(
-      `Não foi possível alcançar a agenda-api em ${VOX_API_BASE_URL}. ${environmentHint} ` +
-      `Confira se o backend está ligado, se a porta 8080 está acessível e se o firewall permite a conexão. Detalhe: ${detail}`,
+      `Não foi possível alcançar a Agenda API em ${VOX_API_BASE_URL}. ${environmentHint} Detalhe: ${detail}`,
     );
   } finally {
     clearTimeout(timeout);
@@ -105,7 +112,7 @@ export async function checkVoxApiHealth(): Promise<void> {
     headers: { Accept: 'application/json' },
   });
 
-  if (!response.ok) throw new Error(httpErrorMessage(response.status, payload));
+  if (!response.ok) throw new VoxApiHttpError(response.status, httpErrorMessage(response.status, payload));
 }
 
 export async function createVoxReminder(text: string): Promise<VoxInterpretation> {
@@ -123,7 +130,7 @@ export async function createVoxReminder(text: string): Promise<VoxInterpretation
     body: JSON.stringify({ text: cleanText }),
   });
 
-  if (!response.ok) throw new Error(httpErrorMessage(response.status, payload));
+  if (!response.ok) throw new VoxApiHttpError(response.status, httpErrorMessage(response.status, payload));
 
   if (
     !payload ||
@@ -132,7 +139,7 @@ export async function createVoxReminder(text: string): Promise<VoxInterpretation
     typeof payload.title !== 'string'
   ) {
     throw new Error(
-      'A agenda-api respondeu, mas o formato recebido é inválido. Confira se o backend e o frontend usam a mesma versão do contrato VOX.',
+      'A agenda-api respondeu, mas o formato recebido é inválido. Confira se o backend e o frontend usam a mesma versão do contrato do Synapse.',
     );
   }
 

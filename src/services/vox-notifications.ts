@@ -39,7 +39,7 @@ export async function scheduleLocalReminder(
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('vox-reminders', {
-      name: 'Lembretes VOX',
+      name: 'Lembretes Synapse',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 150, 250],
       sound: 'default',
@@ -54,7 +54,7 @@ export async function scheduleLocalReminder(
 
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: reminder.title || 'Lembrete VOX',
+      title: reminder.title || 'Lembrete Synapse',
       body: 'Está na hora do seu lembrete.',
       sound: 'default',
       data: { reminderId: reminder.id },

@@ -1,0 +1,105 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import type { PropsWithChildren } from 'react';
+import { readAppSettings, writeAppSettings } from '@/utils/settings-storage';
+
+export type AppTheme = 'light' | 'dark';
+export type AppAccent = 'green' | 'turquoise' | 'purple' | 'beige' | 'monochrome';
+export type AppFontFamily = 'system' | 'serif' | 'rounded';
+
+export type AppSettings = {
+  fontScale: number;
+  theme: AppTheme;
+  accent: AppAccent;
+  fontFamily: AppFontFamily;
+  highContrast: boolean;
+  animationsEnabled: boolean;
+};
+
+const DEFAULT_SETTINGS: AppSettings = {
+  fontScale: 1,
+  theme: 'light',
+  accent: 'green',
+  fontFamily: 'system',
+  highContrast: false,
+  animationsEnabled: true,
+};
+
+type SettingsContextValue = {
+  settings: AppSettings;
+  ready: boolean;
+  updateSettings: (updates: Partial<AppSettings>) => void;
+  resetSettings: () => void;
+};
+
+const AppSettingsContext = createContext<SettingsContextValue | null>(null);
+
+type LegacySettings = Omit<Partial<AppSettings>, 'fontFamily'> & { fontFamily?: AppFontFamily | 'sans' };
+
+function normalizeSettings(value: LegacySettings | null | undefined): AppSettings {
+  const fontScale = typeof value?.fontScale === 'number' && Number.isFinite(value.fontScale)
+    ? Math.min(1.5, Math.max(0.85, value.fontScale))
+    : DEFAULT_SETTINGS.fontScale;
+
+  const accents: AppAccent[] = ['green', 'turquoise', 'purple', 'beige', 'monochrome'];
+  const savedAccent = value?.accent;
+  const accent: AppAccent = accents.includes(savedAccent as AppAccent) ? savedAccent as AppAccent : DEFAULT_SETTINGS.accent;
+  const fontFamily: AppFontFamily = value?.fontFamily === 'serif' || value?.fontFamily === 'rounded'
+    ? value.fontFamily
+    : 'system';
+
+  return {
+    fontScale,
+    theme: value?.theme === 'dark' ? 'dark' : 'light',
+    accent,
+    fontFamily,
+    highContrast: typeof value?.highContrast === 'boolean' ? value.highContrast : false,
+    animationsEnabled: typeof value?.animationsEnabled === 'boolean'
+      ? value.animationsEnabled
+      : DEFAULT_SETTINGS.animationsEnabled,
+  };
+}
+
+export function AppSettingsProvider({ children }: PropsWithChildren) {
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    readAppSettings()
+      .then((saved) => {
+        if (active && saved) setSettings(normalizeSettings(saved as LegacySettings));
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setReady(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    void writeAppSettings(settings).catch(() => undefined);
+  }, [ready, settings]);
+
+  const updateSettings = useCallback((updates: Partial<AppSettings>) => {
+    setSettings((current) => normalizeSettings({ ...current, ...updates }));
+  }, []);
+
+  const resetSettings = useCallback(() => setSettings(DEFAULT_SETTINGS), []);
+
+  const value = useMemo(
+    () => ({ settings, ready, updateSettings, resetSettings }),
+    [settings, ready, updateSettings, resetSettings],
+  );
+
+  return <AppSettingsContext.Provider value={value}>{children}</AppSettingsContext.Provider>;
+}
+
+export function useAppSettings() {
+  const context = useContext(AppSettingsContext);
+  if (!context) throw new Error('useAppSettings deve ser usado dentro de AppSettingsProvider.');
+  return context;
+}

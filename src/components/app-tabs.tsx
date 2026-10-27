@@ -1,32 +1,35 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useColorScheme } from 'react-native';
-
-import { Colors } from '@/constants/theme';
+import { Tabs, TabList, TabTrigger, TabSlot } from 'expo-router/ui';
+import { View } from 'react-native';
+import { usePathname } from 'expo-router';
+import { ReminderComposer } from '@/components/reminder-composer';
+import { VoxMenuList, VoxMenuTabButton } from '@/components/vox-navigation';
 
 export default function AppTabs() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const pathname = usePathname();
+  const showComposer = pathname === '/' || pathname === '/reminders';
 
   return (
-    <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
-      <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>VOX</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="explore">
-        <NativeTabs.Trigger.Label>Como usar</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
-    </NativeTabs>
+    <View style={{ flex: 1, width: '100%', maxWidth: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
+      <Tabs>
+        <TabSlot style={{ flex: 1, width: '100%', maxWidth: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }} />
+        {showComposer ? <ReminderComposer /> : null}
+        <TabList asChild>
+          <VoxMenuList>
+            <TabTrigger name="home" href="/" asChild>
+              <VoxMenuTabButton>Início</VoxMenuTabButton>
+            </TabTrigger>
+            <TabTrigger name="reminders" href="/reminders" asChild>
+              <VoxMenuTabButton>Lembretes</VoxMenuTabButton>
+            </TabTrigger>
+            <TabTrigger name="explore" href="/explore" asChild>
+              <VoxMenuTabButton>Como usar</VoxMenuTabButton>
+            </TabTrigger>
+            <TabTrigger name="settings" href="/settings" asChild>
+              <VoxMenuTabButton>Configurações</VoxMenuTabButton>
+            </TabTrigger>
+          </VoxMenuList>
+        </TabList>
+      </Tabs>
+    </View>
   );
 }

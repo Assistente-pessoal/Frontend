@@ -1,22 +1,22 @@
 {
   "expo": {
-    "name": "VOX - Agenda",
-    "slug": "vox-agenda",
+    "name": "Synapse",
+    "slug": "synapse-agenda",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
-    "scheme": "voxagenda",
-    "userInterfaceStyle": "automatic",
+    "scheme": "synapse",
+    "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/expo.icon",
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "O VOX usa reconhecimento de voz para transcrever seus lembretes.",
-        "NSMicrophoneUsageDescription": "O VOX precisa acessar o microfone para transcrever seus lembretes."
+        "NSSpeechRecognitionUsageDescription": "O Synapse usa reconhecimento de voz para transcrever seus lembretes.",
+        "NSMicrophoneUsageDescription": "O Synapse precisa acessar o microfone para transcrever seus lembretes."
       }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#F7F8F5",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -25,7 +25,8 @@
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.voxsmartschedule.voxagenda"
+      "package": "com.voxsmartschedule.voxagenda",
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "output": "static",
@@ -36,7 +37,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#635BDB",
+          "backgroundColor": "#F7F8F5",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
@@ -44,8 +45,8 @@
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "O VOX precisa acessar o microfone para transcrever seus lembretes.",
-          "speechRecognitionPermission": "O VOX usa reconhecimento de voz para transcrever seus lembretes.",
+          "microphonePermission": "O Synapse precisa acessar o microfone para transcrever seus lembretes.",
+          "speechRecognitionPermission": "O Synapse usa o reconhecimento de voz configurado no aparelho.",
           "androidSpeechServicePackages": [
             "com.google.android.googlequicksearchbox",
             "com.google.android.tts",
@@ -56,7 +57,7 @@
       [
         "expo-notifications",
         {
-          "color": "#635BDB",
+          "color": "#245B46",
           "defaultChannel": "vox-reminders"
         }
       ]

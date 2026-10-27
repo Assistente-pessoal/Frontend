@@ -1,89 +1,35 @@
-import {
-  Tabs,
-  TabList,
-  TabTrigger,
-  TabSlot,
-  TabTriggerSlotProps,
-  TabListProps,
-} from 'expo-router/ui';
-import { Pressable, View, StyleSheet } from 'react-native';
-
-import { ThemedText } from './themed-text';
-import { ThemedView } from './themed-view';
-
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Tabs, TabList, TabTrigger, TabSlot } from 'expo-router/ui';
+import { View } from 'react-native';
+import { usePathname } from 'expo-router';
+import { ReminderComposer } from '@/components/reminder-composer';
+import { VoxMenuList, VoxMenuTabButton } from '@/components/vox-navigation';
 
 export default function AppTabs() {
-  return (
-    <Tabs>
-      <TabSlot style={{ flex: 1, width: '100%' }} />
-      <TabList asChild>
-        <CustomTabList>
-          <TabTrigger name="home" href="/" asChild>
-            <TabButton>VOX</TabButton>
-          </TabTrigger>
-          <TabTrigger name="explore" href="/explore" asChild>
-            <TabButton>Como usar</TabButton>
-          </TabTrigger>
-        </CustomTabList>
-      </TabList>
-    </Tabs>
-  );
-}
+  const pathname = usePathname();
+  const showComposer = pathname === '/' || pathname === '/reminders';
 
-export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
   return (
-    <Pressable {...props} style={({ pressed }) => [pressed && styles.pressed]}>
-      <ThemedView
-        type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
-        style={styles.tabButtonView}>
-        <ThemedText type="small" themeColor={isFocused ? 'text' : 'textSecondary'}>
-          {children}
-        </ThemedText>
-      </ThemedView>
-    </Pressable>
-  );
-}
-
-export function CustomTabList(props: TabListProps) {
-  return (
-    <View {...props} style={styles.tabListContainer}>
-      <ThemedView type="backgroundElement" style={styles.innerContainer}>
-        <ThemedText type="smallBold" themeColor="text" style={styles.brandText}>
-          VOX
-        </ThemedText>
-        {props.children}
-      </ThemedView>
+    <View style={{ flex: 1, width: '100%', maxWidth: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
+      <Tabs>
+        <TabSlot style={{ flex: 1, width: '100%', maxWidth: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }} />
+        {showComposer ? <ReminderComposer /> : null}
+        <TabList asChild>
+          <VoxMenuList>
+            <TabTrigger name="home" href="/" asChild>
+              <VoxMenuTabButton>Início</VoxMenuTabButton>
+            </TabTrigger>
+            <TabTrigger name="reminders" href="/reminders" asChild>
+              <VoxMenuTabButton>Lembretes</VoxMenuTabButton>
+            </TabTrigger>
+            <TabTrigger name="explore" href="/explore" asChild>
+              <VoxMenuTabButton>Como usar</VoxMenuTabButton>
+            </TabTrigger>
+            <TabTrigger name="settings" href="/settings" asChild>
+              <VoxMenuTabButton>Configurações</VoxMenuTabButton>
+            </TabTrigger>
+          </VoxMenuList>
+        </TabList>
+      </Tabs>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  tabListContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 14,
-    zIndex: 20,
-    width: '100%',
-    paddingHorizontal: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  innerContainer: {
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.five,
-    borderRadius: Spacing.five,
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    flexGrow: 1,
-    gap: Spacing.two,
-    maxWidth: MaxContentWidth,
-  },
-  brandText: { marginRight: 'auto' },
-  pressed: { opacity: 0.7 },
-  tabButtonView: { paddingVertical: Spacing.one, paddingHorizontal: Spacing.three, borderRadius: Spacing.three },
-});
-

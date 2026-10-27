@@ -1,7 +1,8 @@
-import { ScrollView, StyleSheet, Text, useColorScheme, useWindowDimensions, View } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { Colors, Spacing } from '@/constants/theme';
+import { AppText as Text } from '@/components/app-text';
+import { useAppSettings } from '@/context/app-settings';
+import { getAppPalette } from '@/constants/app-palette';
 
 const tips = [
   {
@@ -17,7 +18,7 @@ const tips = [
   {
     number: '03',
     title: 'Confirme a conexão',
-    description: 'O texto é enviado para a agenda-api, que consulta o serviço VOX e armazena o lembrete no MongoDB.',
+    description: 'O texto é enviado para a agenda-api, que consulta o serviço de interpretação e armazena o lembrete no MongoDB.',
   },
   {
     number: '04',
@@ -27,56 +28,74 @@ const tips = [
 ];
 
 export default function HelpScreen() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
   const { width } = useWindowDimensions();
-  const isWideLayout = width >= 820;
+  const { settings } = useAppSettings();
+  const isWideLayout = width >= 900;
+  const palette = getAppPalette(settings);
+  const colors = {
+    background: palette.background,
+    surface: palette.surface,
+    border: palette.outline,
+    text: palette.text,
+    muted: palette.muted,
+    green: palette.accent,
+    note: palette.accentSoft,
+    accentContainer: palette.accentContainer,
+    onAccentContainer: palette.onAccentContainer,
+  };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={[styles.container, { paddingHorizontal: width < 380 ? 14 : isWideLayout ? 32 : 20, paddingBottom: 124, maxWidth: isWideLayout ? 980 : 700 }]} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.kicker, { color: '#635BDB' }]}>GUIA RÁPIDO</Text>
-        <Text style={[styles.title, { color: colors.text }]}>Como usar o VOX</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Quatro passos para transformar uma frase em um lembrete.
-        </Text>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'left', 'right', 'bottom']}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.container, { paddingTop: 76, paddingHorizontal: width < 360 ? 16 : width < 600 ? 20 : isWideLayout ? 42 : 28 }]}
+        showsVerticalScrollIndicator={false}>
+        <Text style={[styles.kicker, { color: colors.green }]}>GUIA RÁPIDO</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Como usar o Synapse</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>Quatro passos para transformar uma frase em um lembrete organizado.</Text>
+
         <View style={[styles.steps, isWideLayout && styles.stepsWide]}>
           {tips.map((tip) => (
-            <View key={tip.number} style={[styles.card, isWideLayout && styles.cardWide, { backgroundColor: colors.backgroundElement }]}>
-              <View style={styles.numberCircle}>
-                <Text style={styles.numberText}>{tip.number}</Text>
+            <View key={tip.number} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, isWideLayout && styles.cardWide]}>
+              <View style={[styles.numberCircle, { backgroundColor: colors.accentContainer }]}>
+                <Text style={[styles.numberText, { color: colors.green }]}>{tip.number}</Text>
               </View>
               <View style={styles.cardContent}>
                 <Text style={[styles.cardTitle, { color: colors.text }]}>{tip.title}</Text>
-                <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
-                  {tip.description}
-                </Text>
+                <Text style={[styles.cardDescription, { color: colors.muted }]}>{tip.description}</Text>
               </View>
             </View>
           ))}
         </View>
-        <Text style={[styles.note, { color: colors.textSecondary }]}>
-          Observação: a transcrição no celular é configurada para usar reconhecimento no próprio dispositivo. No Android, o idioma português offline precisa estar instalado. A versão inicial do microserviço interpreta comandos com regras locais; um modelo de IA real ainda precisa ser configurado separadamente.
-        </Text>
+
+        <View style={[styles.noteCard, { backgroundColor: colors.note }]}>
+          <Text style={[styles.noteTitle, { color: colors.green }]}>Sobre o reconhecimento de voz</Text>
+          <Text style={[styles.note, { color: colors.muted }]}>
+            O Synapse utiliza o serviço de reconhecimento configurado no aparelho. Em Android 12 ou anterior, o Google app precisa estar instalado e ativo; em Android 13 ou superior, utilize Speech Recognition & Synthesis. O idioma Português (Brasil) precisa estar disponível no serviço. Se o reconhecimento não estiver disponível, você ainda pode digitar o lembrete.
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  container: { flexGrow: 1, paddingVertical: 24, gap: 12, width: '100%', alignSelf: 'center' },
-  kicker: { fontSize: 11, fontWeight: '800', letterSpacing: 1.4, marginTop: Spacing.two },
-  title: { fontSize: 30, fontWeight: '800', letterSpacing: -0.6 },
-  subtitle: { fontSize: 14, lineHeight: 22, marginBottom: Spacing.two },
+  safeArea: { flex: 1, width: '100%', maxWidth: '100%', overflow: 'hidden' },
+  scroll: { flex: 1, width: '100%', maxWidth: '100%' },
+  container: { flexGrow: 1, width: '100%', maxWidth: 1180, minWidth: 0, alignSelf: 'center', paddingBottom: 44, gap: 11 },
+  kicker: { fontSize: 10, fontWeight: '800', letterSpacing: 1.3 },
+  title: { fontSize: 32, lineHeight: 39, fontWeight: '900', letterSpacing: -0.9 },
+  subtitle: { fontSize: 14, lineHeight: 21, marginBottom: 18, maxWidth: 580 },
   steps: { gap: 12 },
   stepsWide: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'stretch' },
-  card: { borderRadius: 20, padding: Spacing.three, flexDirection: 'row', gap: 13, width: '100%' },
-  cardWide: { width: '48%', minWidth: 300, flexGrow: 1 },
-  numberCircle: { width: 36, height: 36, borderRadius: 13, backgroundColor: '#635BDB', alignItems: 'center', justifyContent: 'center' },
-  numberText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  card: { borderRadius: 24, padding: 19, flexDirection: 'row', gap: 14, borderWidth: 1, minWidth: 0 },
+  cardWide: { width: '48%', minWidth: 260, flexGrow: 1 },
+  numberCircle: { width: 39, height: 39, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  numberText: { fontSize: 12, fontWeight: '900' },
   cardContent: { flex: 1, gap: 6 },
-  cardTitle: { fontSize: 16, fontWeight: '700' },
-  cardDescription: { fontSize: 13, lineHeight: 20 },
-  note: { fontSize: 12, lineHeight: 18, paddingTop: Spacing.three },
+  cardTitle: { fontSize: 15, fontWeight: '800' },
+  cardDescription: { fontSize: 12, lineHeight: 19 },
+  noteCard: { marginTop: 14, borderRadius: 24, padding: 18, gap: 7 },
+  noteTitle: { fontSize: 12, fontWeight: '800' },
+  note: { fontSize: 11, lineHeight: 18 },
 });
