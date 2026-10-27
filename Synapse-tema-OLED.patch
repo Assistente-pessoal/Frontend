@@ -1,0 +1,172 @@
+diff --git a/README.md b/README.md
+index e587486..64a9e72 100644
+--- a/README.md
++++ b/README.md
+@@ -71,3 +71,7 @@ A interface segue uma linguagem inspirada no Material 3 Expressive: superfícies
+ 4. Testar Android 16 em tablet/dobrável com rotação e multi-janela; testar alto contraste e TalkBack.
+ 
+ > A disponibilidade do servidor publicado e do serviço de IA precisa ser confirmada no seu ambiente; o frontend não controla a saúde nem o contrato do backend.
++
++### Tema escuro OLED
++
++Ao selecionar **Escuro** em Configurações, o fundo do aplicativo fica preto puro (`#000000`), com cartões em cinza neutro quase preto. As cinco cores de destaque permanecem independentes do tema e continuam aparecendo nos botões, ícones e seleções.
+diff --git a/src/app/_layout.tsx b/src/app/_layout.tsx
+index 5ea096a..6f1aab2 100644
+--- a/src/app/_layout.tsx
++++ b/src/app/_layout.tsx
+@@ -14,8 +14,20 @@ SplashScreen.preventAutoHideAsync();
+ 
+ function AppShell() {
+   const { settings } = useAppSettings();
+-  const activeTheme = settings.theme === 'dark' ? DarkTheme : DefaultTheme;
+   const palette = getAppPalette(settings);
++  const baseTheme = settings.theme === 'dark' ? DarkTheme : DefaultTheme;
++  // Keep React Navigation surfaces in sync with the OLED palette.
++  const activeTheme = {
++    ...baseTheme,
++    colors: {
++      ...baseTheme.colors,
++      background: palette.background,
++      card: palette.surface,
++      text: palette.text,
++      border: palette.outline,
++      primary: palette.accent,
++    },
++  };
+ 
+   useEffect(() => {
+     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+diff --git a/src/app/settings.tsx b/src/app/settings.tsx
+index 5c99975..bd472de 100644
+--- a/src/app/settings.tsx
++++ b/src/app/settings.tsx
+@@ -108,7 +108,7 @@ export default function SettingsScreen() {
+               const selected = settings.theme === theme;
+               return (
+                 <Pressable key={theme} accessibilityRole="button" accessibilityState={{ selected }} android_ripple={{ color: colors.accentContainer }} onPress={() => updateSettings({ theme })} style={[styles.segment, selected && { backgroundColor: colors.surface, borderColor: colors.accent, borderWidth: 1 }]}>
+-                  <AppText style={[styles.segmentText, { color: selected ? colors.accent : colors.muted }]}>{theme === 'light' ? '☀  Claro' : '☾  Escuro'}</AppText>
++                  <AppText style={[styles.segmentText, { color: selected ? colors.accent : colors.muted }]}>{theme === 'light' ? '☀  Claro' : '☾  Escuro OLED'}</AppText>
+                 </Pressable>
+               );
+             })}
+diff --git a/src/components/reminder-composer.tsx b/src/components/reminder-composer.tsx
+index 72fc2e0..5dfddd0 100644
+--- a/src/components/reminder-composer.tsx
++++ b/src/components/reminder-composer.tsx
+@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
+   composerDockMobileWeb: { paddingHorizontal: 10 },
+   composerDockWide: { paddingHorizontal: 28, paddingBottom: 12 },
+   composerDockShort: { paddingTop: 4, paddingBottom: 4 },
+-  composerPanelShadow: { width: '100%', maxWidth: 860, minWidth: 0, borderRadius: 28, shadowColor: '#233D30', shadowOpacity: 0.13, shadowRadius: 22, shadowOffset: { width: 0, height: 7 }, elevation: 9 },
++  composerPanelShadow: { width: '100%', maxWidth: 860, minWidth: 0, borderRadius: 28, shadowColor: '#000000', shadowOpacity: 0.13, shadowRadius: 22, shadowOffset: { width: 0, height: 7 }, elevation: 9 },
+   composerPanel: { width: '100%', minWidth: 0, minHeight: 0, borderRadius: 28, borderWidth: 1, borderColor: '#DDE5DE', backgroundColor: palette.surface, paddingHorizontal: 15, paddingTop: 11, paddingBottom: 10, overflow: 'hidden' },
+   noticeViewport: { flexShrink: 1, minHeight: 0, marginBottom: 5 },
+   noticeList: { gap: 0, paddingBottom: 1 },
+@@ -506,12 +506,12 @@ const styles = StyleSheet.create({
+   noticeError: { backgroundColor: '#FCEAEA', borderColor: '#F5D8D9' },
+   noticeInfo: { backgroundColor: '#E8F3EB', borderColor: '#D5E8DA' },
+   noticeErrorDark: { backgroundColor: '#45292B', borderColor: '#684044' },
+-  noticeInfoDark: { backgroundColor: '#263D2F', borderColor: '#3B5945' },
++  noticeInfoDark: { backgroundColor: '#181818', borderColor: '#373737' },
+   noticeIcon: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+   noticeIconError: { backgroundColor: '#F4D0D2' },
+   noticeIconInfo: { backgroundColor: '#D2E8D8' },
+   noticeIconErrorDark: { backgroundColor: '#61373B' },
+-  noticeIconInfoDark: { backgroundColor: '#355641' },
++  noticeIconInfoDark: { backgroundColor: '#303030' },
+   noticeIconText: { fontSize: 11, fontWeight: '900' },
+   noticeIconTextError: { color: palette.red },
+   noticeIconTextInfo: { color: palette.green },
+@@ -520,12 +520,12 @@ const styles = StyleSheet.create({
+   noticeTitleError: { color: palette.red },
+   noticeTitleInfo: { color: palette.green },
+   noticeTitleErrorDark: { color: '#F0BFC2' },
+-  noticeTitleInfoDark: { color: '#BFE0C9' },
++  noticeTitleInfoDark: { color: '#E7E7E7' },
+   noticeMessage: { fontSize: 10, lineHeight: 15 },
+   noticeMessageError: { color: '#6F3438' },
+   noticeMessageInfo: { color: '#315D43' },
+   noticeMessageErrorDark: { color: '#E8C8CA' },
+-  noticeMessageInfoDark: { color: '#C8DDCE' },
++  noticeMessageInfoDark: { color: '#D2D2D2' },
+   composerTopline: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+   composerBrandIcon: { width: 23, height: 23, borderRadius: 8, backgroundColor: palette.greenSoft, alignItems: 'center', justifyContent: 'center' },
+   composerBrandGlyph: { color: palette.green, fontSize: 14, fontWeight: '900' },
+diff --git a/src/components/vox-navigation.tsx b/src/components/vox-navigation.tsx
+index ae3c206..97230b8 100644
+--- a/src/components/vox-navigation.tsx
++++ b/src/components/vox-navigation.tsx
+@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
+   navigationLayer: { ...StyleSheet.absoluteFillObject, zIndex: 100, elevation: 100 },
+   edgeSwipeTarget: { position: 'absolute', top: 0, bottom: 0, left: 0, width: 24, zIndex: 99 },
+   topBar: { position: 'absolute', left: 0, right: 0, zIndex: 102, flexDirection: 'row', alignItems: 'center', gap: 10, height: 52, minWidth: 0, width: '100%', overflow: 'hidden' },
+-  menuButton: { flexShrink: 0, width: 48, height: 48, borderRadius: 17, borderWidth: 1, alignItems: 'center', justifyContent: 'center', shadowColor: '#253E31', shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 3, overflow: 'hidden' },
++  menuButton: { flexShrink: 0, width: 48, height: 48, borderRadius: 17, borderWidth: 1, alignItems: 'center', justifyContent: 'center', shadowColor: '#000000', shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 3, overflow: 'hidden' },
+   menuButtonPressed: { transform: [{ scale: 0.96 }] },
+   menuIcon: { width: 20, height: 18, justifyContent: 'space-between' },
+   menuLine: { width: 20, height: 2.2, borderRadius: 2 },
+@@ -188,8 +188,8 @@ const styles = StyleSheet.create({
+   menuBrandSubtitle: { fontSize: 8, lineHeight: 10, fontWeight: '800', letterSpacing: 1.05 },
+   remindersShortcut: { flexShrink: 0, height: 46, minWidth: 94, paddingHorizontal: 12, borderRadius: 18, borderWidth: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+   remindersShortcutText: { fontSize: 12, fontWeight: '800' },
+-  backdrop: { ...StyleSheet.absoluteFillObject, zIndex: 100, backgroundColor: 'rgba(24, 39, 31, 0.42)' },
+-  drawer: { position: 'absolute', top: 0, left: 0, bottom: 0, zIndex: 101, width: '88%', maxWidth: 380, paddingTop: Platform.OS === 'android' ? 46 : 28, paddingHorizontal: 20, paddingBottom: 24, borderTopRightRadius: 30, borderBottomRightRadius: 30, shadowColor: '#17281F', shadowOpacity: 0.2, shadowRadius: 24, shadowOffset: { width: 8, height: 0 }, elevation: 18, overflow: 'hidden' },
++  backdrop: { ...StyleSheet.absoluteFillObject, zIndex: 100, backgroundColor: 'rgba(0, 0, 0, 0.65)' },
++  drawer: { position: 'absolute', top: 0, left: 0, bottom: 0, zIndex: 101, width: '88%', maxWidth: 380, paddingTop: Platform.OS === 'android' ? 46 : 28, paddingHorizontal: 20, paddingBottom: 24, borderTopRightRadius: 30, borderBottomRightRadius: 30, shadowColor: '#000000', shadowOpacity: 0.2, shadowRadius: 24, shadowOffset: { width: 8, height: 0 }, elevation: 18, overflow: 'hidden' },
+   drawerScrollContent: { flexGrow: 1, minWidth: 0, paddingBottom: 8 },
+   drawerHeader: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 25 },
+   brandCopy: { flex: 1, minWidth: 0, gap: 2 },
+diff --git a/src/constants/app-palette.ts b/src/constants/app-palette.ts
+index 6ba50b0..ccb0dee 100644
+--- a/src/constants/app-palette.ts
++++ b/src/constants/app-palette.ts
+@@ -50,17 +50,19 @@ export function getAppPalette(settings: Pick<AppSettings, 'theme' | 'accent' | '
+   const selected = isDark ? pair.dark : pair.light;
+ 
+   return {
+-    background: contrast ? (isDark ? '#000000' : '#FFFFFF') : (isDark ? '#151715' : '#F7F8F5'),
+-    surface: contrast ? (isDark ? '#080808' : '#FFFFFF') : (isDark ? '#202620' : '#FFFFFF'),
+-    surfaceVariant: contrast ? (isDark ? '#171717' : '#F0F0F0') : (isDark ? '#252D27' : '#F0F3EF'),
+-    text: contrast ? (isDark ? '#FFFFFF' : '#000000') : (isDark ? '#F0F4F0' : '#212421'),
+-    muted: contrast ? (isDark ? '#EEEEEE' : '#111111') : (isDark ? '#B7C1B9' : '#68716A'),
+-    outline: contrast ? (isDark ? '#FFFFFF' : '#000000') : (isDark ? '#455149' : '#DCE2DC'),
++    background: isDark ? '#000000' : (contrast ? '#FFFFFF' : '#F7F8F5'),
++    surface: isDark ? (contrast ? '#080808' : '#101010') : '#FFFFFF',
++    surfaceVariant: isDark ? (contrast ? '#161616' : '#1B1B1B') : (contrast ? '#F0F0F0' : '#F0F3EF'),
++    text: contrast ? (isDark ? '#FFFFFF' : '#000000') : (isDark ? '#F5F5F5' : '#212421'),
++    muted: contrast ? (isDark ? '#EEEEEE' : '#111111') : (isDark ? '#B6B6B6' : '#68716A'),
++    outline: contrast ? (isDark ? '#FFFFFF' : '#000000') : (isDark ? '#353535' : '#DCE2DC'),
+     accent: selected.accent,
+     onAccent: selected.onAccent,
+     accentContainer: selected.container,
+     onAccentContainer: selected.onContainer,
+-    accentSoft: selected.soft,
++    // Large informational panels remain neutral in OLED mode.
++    // Selected accent colors are reserved for controls, icons and highlights.
++    accentSoft: isDark ? (contrast ? '#101010' : '#181818') : selected.soft,
+     accentBorder: contrast ? (isDark ? '#FFFFFF' : '#000000') : selected.border,
+   };
+ }
+diff --git a/src/constants/theme.ts b/src/constants/theme.ts
+index 85fac44..c37c589 100644
+--- a/src/constants/theme.ts
++++ b/src/constants/theme.ts
+@@ -17,12 +17,12 @@ export const Colors = {
+     tint: '#245B46',
+   },
+   dark: {
+-    text: '#F3F5F1',
+-    background: '#171B18',
+-    backgroundElement: '#222923',
+-    backgroundSelected: '#2A3A30',
+-    textSecondary: '#B5BDB6',
+-    tint: '#B9D2C4',
++    text: '#F5F5F5',
++    background: '#000000',
++    backgroundElement: '#101010',
++    backgroundSelected: '#1B1B1B',
++    textSecondary: '#B6B6B6',
++    tint: '#B9DCC7',
+   },
+ } as const;
+ 

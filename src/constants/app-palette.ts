@@ -50,17 +50,19 @@ export function getAppPalette(settings: Pick<AppSettings, 'theme' | 'accent' | '
   const selected = isDark ? pair.dark : pair.light;
 
   return {
-    background: contrast ? (isDark ? '#000000' : '#FFFFFF') : (isDark ? '#151715' : '#F7F8F5'),
-    surface: contrast ? (isDark ? '#080808' : '#FFFFFF') : (isDark ? '#202620' : '#FFFFFF'),
-    surfaceVariant: contrast ? (isDark ? '#171717' : '#F0F0F0') : (isDark ? '#252D27' : '#F0F3EF'),
-    text: contrast ? (isDark ? '#FFFFFF' : '#000000') : (isDark ? '#F0F4F0' : '#212421'),
-    muted: contrast ? (isDark ? '#EEEEEE' : '#111111') : (isDark ? '#B7C1B9' : '#68716A'),
-    outline: contrast ? (isDark ? '#FFFFFF' : '#000000') : (isDark ? '#455149' : '#DCE2DC'),
+    background: isDark ? '#000000' : (contrast ? '#FFFFFF' : '#F7F8F5'),
+    surface: isDark ? (contrast ? '#080808' : '#101010') : '#FFFFFF',
+    surfaceVariant: isDark ? (contrast ? '#161616' : '#1B1B1B') : (contrast ? '#F0F0F0' : '#F0F3EF'),
+    text: contrast ? (isDark ? '#FFFFFF' : '#000000') : (isDark ? '#F5F5F5' : '#212421'),
+    muted: contrast ? (isDark ? '#EEEEEE' : '#111111') : (isDark ? '#B6B6B6' : '#68716A'),
+    outline: contrast ? (isDark ? '#FFFFFF' : '#000000') : (isDark ? '#353535' : '#DCE2DC'),
     accent: selected.accent,
     onAccent: selected.onAccent,
     accentContainer: selected.container,
     onAccentContainer: selected.onContainer,
-    accentSoft: selected.soft,
+    // Large informational panels remain neutral in OLED mode.
+    // Selected accent colors are reserved for controls, icons and highlights.
+    accentSoft: isDark ? (contrast ? '#101010' : '#181818') : selected.soft,
     accentBorder: contrast ? (isDark ? '#FFFFFF' : '#000000') : selected.border,
   };
 }

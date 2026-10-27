@@ -14,8 +14,20 @@ SplashScreen.preventAutoHideAsync();
 
 function AppShell() {
   const { settings } = useAppSettings();
-  const activeTheme = settings.theme === 'dark' ? DarkTheme : DefaultTheme;
   const palette = getAppPalette(settings);
+  const baseTheme = settings.theme === 'dark' ? DarkTheme : DefaultTheme;
+  // Keep React Navigation surfaces in sync with the OLED palette.
+  const activeTheme = {
+    ...baseTheme,
+    colors: {
+      ...baseTheme.colors,
+      background: palette.background,
+      card: palette.surface,
+      text: palette.text,
+      border: palette.outline,
+      primary: palette.accent,
+    },
+  };
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;

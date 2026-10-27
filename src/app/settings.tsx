@@ -108,7 +108,7 @@ export default function SettingsScreen() {
               const selected = settings.theme === theme;
               return (
                 <Pressable key={theme} accessibilityRole="button" accessibilityState={{ selected }} android_ripple={{ color: colors.accentContainer }} onPress={() => updateSettings({ theme })} style={[styles.segment, selected && { backgroundColor: colors.surface, borderColor: colors.accent, borderWidth: 1 }]}>
-                  <AppText style={[styles.segmentText, { color: selected ? colors.accent : colors.muted }]}>{theme === 'light' ? '☀  Claro' : '☾  Escuro'}</AppText>
+                  <AppText style={[styles.segmentText, { color: selected ? colors.accent : colors.muted }]}>{theme === 'light' ? '☀  Claro' : '☾  Escuro OLED'}</AppText>
                 </Pressable>
               );
             })}

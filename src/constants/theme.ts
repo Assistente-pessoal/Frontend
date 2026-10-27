@@ -17,12 +17,12 @@ export const Colors = {
     tint: '#245B46',
   },
   dark: {
-    text: '#F3F5F1',
-    background: '#171B18',
-    backgroundElement: '#222923',
-    backgroundSelected: '#2A3A30',
-    textSecondary: '#B5BDB6',
-    tint: '#B9D2C4',
+    text: '#F5F5F5',
+    background: '#000000',
+    backgroundElement: '#101010',
+    backgroundSelected: '#1B1B1B',
+    textSecondary: '#B6B6B6',
+    tint: '#B9DCC7',
   },
 } as const;
 

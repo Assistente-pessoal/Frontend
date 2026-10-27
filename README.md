@@ -71,3 +71,7 @@ A interface segue uma linguagem inspirada no Material 3 Expressive: superfícies
 4. Testar Android 16 em tablet/dobrável com rotação e multi-janela; testar alto contraste e TalkBack.
 
 > A disponibilidade do servidor publicado e do serviço de IA precisa ser confirmada no seu ambiente; o frontend não controla a saúde nem o contrato do backend.
+
+### Tema escuro OLED
+
+Ao selecionar **Escuro** em Configurações, o fundo do aplicativo fica preto puro (`#000000`), com cartões em cinza neutro quase preto. As cinco cores de destaque permanecem independentes do tema e continuam aparecendo nos botões, ícones e seleções.
