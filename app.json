@@ -1,7 +1,9 @@
+
 {
   "expo": {
     "name": "Synapse",
     "slug": "synapse-agenda",
+    "owner": "ssasuru",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
@@ -10,7 +12,7 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "O Synapse usa o reconhecimento de voz configurado no aparelho.",
+        "NSSpeechRecognitionUsageDescription": "O Synapse usa reconhecimento de voz para transcrever seus lembretes.",
         "NSMicrophoneUsageDescription": "O Synapse precisa acessar o microfone para transcrever seus lembretes."
       }
     },
@@ -66,21 +68,11 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "expo": {
-      "name": "Synapse",
-      "owner": "ssasurus-team",
-      "extra": {
-        "eas": {
-          "projectId": "dfhe5dVILNbrEun2BdfjfnImz6f2xLEFZHEJnlej"
-        }
-      }
-    },
     "extra": {
       "router": {},
       "eas": {
         "projectId": "434b8b50-579a-4bd2-b3d4-0d470206f992"
       }
-    },
-    "owner": "ssasuru"
+    }
   }
 }
