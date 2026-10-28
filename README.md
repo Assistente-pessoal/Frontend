@@ -1,3 +1,5 @@
+> **Autenticação (Etapa 2):** esta versão exige o backend atualizado com `/auth/login` e `/auth/me`. Veja [INTEGRACAO_AUTENTICACAO.md](./INTEGRACAO_AUTENTICACAO.md) antes de gerar o APK.
+
 # Synapse — Frontend Expo
 
 Aplicativo móvel e web para criação e organização de lembretes por texto ou voz.

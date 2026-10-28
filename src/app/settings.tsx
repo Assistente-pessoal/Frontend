@@ -1,5 +1,7 @@
 import { router } from 'expo-router';
-import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text as NativeText, useWindowDimensions, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text as NativeText, useWindowDimensions, View } from 'react-native';
+import { useState } from 'react';
+import { useAuthSession } from '@/context/auth-session';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/app-text';
 import { useAppSettings, type AppFontFamily, type AppTheme } from '@/context/app-settings';
@@ -15,6 +17,30 @@ export default function SettingsScreen() {
   const { width } = useWindowDimensions();
   const { settings, updateSettings, resetSettings } = useAppSettings();
   const colors = getAppPalette(settings);
+  const { user, signOut } = useAuthSession();
+  const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function doSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    setSignOutError(null);
+    try {
+      await signOut();
+    } catch (error) {
+      setSignOutError(error instanceof Error ? error.message : 'Não foi possível confirmar o encerramento da sessão.');
+      Alert.alert('Aviso sobre o logout', error instanceof Error ? error.message : 'Não foi possível concluir o logout no servidor.');
+    } finally { setSigningOut(false); }
+  }
+
+  function confirmSignOut() {
+    if (Platform.OS === 'web') { void doSignOut(); return; }
+    Alert.alert('Sair do Synapse?', 'Os lembretes continuam salvos na sua conta. Notificações locais agendadas neste aparelho serão canceladas.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Sair', style: 'destructive', onPress: () => { void doSignOut(); } },
+    ]);
+  }
+
   const compact = width < 430;
   const wide = width >= 720;
 
@@ -178,6 +204,24 @@ export default function SettingsScreen() {
               accessibilityLabel="Ativar animações"
             />
           </View>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
+          <View style={styles.cardHeader}>
+            <View style={[styles.iconBubble, { backgroundColor: colors.accentContainer }]}>
+              <AppText style={[styles.iconGlyph, { color: colors.onAccentContainer }]}>♙</AppText>
+            </View>
+            <View style={styles.cardHeaderCopy}>
+              <AppText style={[styles.cardTitle, { color: colors.text }]}>Sua conta</AppText>
+              <AppText style={[styles.cardDescription, { color: colors.muted }]}>{user?.name || 'Usuário'}</AppText>
+              <AppText selectable style={[styles.cardDescription, { color: colors.muted }]}>{user?.email || ''}</AppText>
+            </View>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Sair da conta" disabled={signingOut}
+            onPress={confirmSignOut} style={[styles.resetButton, { borderColor: colors.outline }, signingOut && styles.disabled]}>
+            <AppText style={[styles.resetText, { color: colors.text }]}>{signingOut ? 'Saindo…' : 'Sair da conta'}</AppText>
+          </Pressable>
+          {signOutError && <AppText accessibilityRole="alert" style={[styles.cardDescription, { color: '#CC545B' }]}>{signOutError}</AppText>}
         </View>
 
         <Pressable accessibilityRole="button" android_ripple={{ color: colors.accentContainer }} onPress={resetSettings} style={[styles.resetButton, { borderColor: colors.outline }]}>

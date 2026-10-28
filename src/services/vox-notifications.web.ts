@@ -13,3 +13,5 @@ export async function scheduleLocalReminder(
 ): Promise<LocalReminderResult> {
   return 'unsupported-platform';
 }
+
+export async function clearScheduledReminders(): Promise<void> { /* Notificações nativas indisponíveis na web. */ }

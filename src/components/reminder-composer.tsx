@@ -24,6 +24,7 @@ import {
 
 import { createVoxReminder, VoxApiHttpError } from '@/services/vox-api';
 import { scheduleLocalReminder } from '@/services/vox-notifications';
+import { getAccessToken } from '@/services/auth-token';
 
 const palette = {
   ink: '#212421',
@@ -313,12 +314,15 @@ export function ReminderComposer() {
       return;
     }
 
+    const sessionAtStart = getAccessToken();
     setSubmitting(true);
     setErrorMessage('');
     setInfoMessage('Enviando o texto para a agenda-api interpretar…');
 
     try {
       const reminder = await createVoxReminder(text);
+      // Evitar salvar dados em memória ou agendar notificações após troca de conta/logout.
+      if (!sessionAtStart || sessionAtStart !== getAccessToken()) return;
       reportApiResult('online', 'Agenda API conectada e respondendo.');
       setLastSaved(reminder);
 

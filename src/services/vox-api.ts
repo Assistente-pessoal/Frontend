@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { expireSessionIfCurrent, getAccessToken } from './auth-token';
 
 export type VoxInterpretation = {
   id: string;
@@ -120,16 +121,24 @@ export async function createVoxReminder(text: string): Promise<VoxInterpretation
   if (!cleanText) throw new Error('Digite ou transcreva um lembrete antes de enviar.');
   if (cleanText.length > 2000) throw new Error('O lembrete deve ter no máximo 2.000 caracteres.');
 
+  const token = getAccessToken();
+  if (!token) throw new VoxApiHttpError(401, 'Entre na sua conta para salvar lembretes.');
+
   const { response, payload } = await requestApi('/api/vox/transcriptions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
     },
     // Only the reviewed text is sent; audio remains on the device.
     body: JSON.stringify({ text: cleanText }),
   });
 
+  if (response.status === 401) {
+    expireSessionIfCurrent(token);
+    throw new VoxApiHttpError(401, 'Sua sessão expirou. Entre novamente.');
+  }
   if (!response.ok) throw new VoxApiHttpError(response.status, httpErrorMessage(response.status, payload));
 
   if (

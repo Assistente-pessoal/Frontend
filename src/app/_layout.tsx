@@ -9,8 +9,25 @@ import AppTabs from '@/components/app-tabs';
 import { AppSettingsProvider, useAppSettings } from '@/context/app-settings';
 import { getAppPalette } from '@/constants/app-palette';
 import { ReminderSessionProvider } from '@/context/reminder-session';
+import { AuthSessionProvider, useAuthSession } from '@/context/auth-session';
+import { AuthScreen } from '@/components/auth-screen';
+import { ActivityIndicator, View } from 'react-native';
 
 SplashScreen.preventAutoHideAsync();
+
+function ProtectedApp() {
+  const { user, initializing } = useAuthSession();
+  const { settings } = useAppSettings();
+  const palette = getAppPalette(settings);
+  if (initializing) return (
+    <View style={{ flex: 1, backgroundColor: palette.background, alignItems: 'center', justifyContent: 'center' }}>
+      <ActivityIndicator size="large" color={palette.accent} />
+    </View>
+  );
+  if (!user) return <AuthScreen />;
+  // Desmontar composer, histórico e estado temporário quando a conta é encerrada.
+  return <ReminderSessionProvider key={user.id}><AppTabs /></ReminderSessionProvider>;
+}
 
 function AppShell() {
   const { settings } = useAppSettings();
@@ -42,7 +59,7 @@ function AppShell() {
     <ThemeProvider value={activeTheme}>
       <StatusBar style={settings.theme === 'dark' ? 'light' : 'dark'} />
       <AnimatedSplashOverlay />
-      <AppTabs />
+      <ProtectedApp />
     </ThemeProvider>
   );
 }
@@ -50,7 +67,7 @@ function AppShell() {
 export default function RootLayout() {
   return (
     <AppSettingsProvider>
-      <ReminderSessionProvider><AppShell /></ReminderSessionProvider>
+      <AuthSessionProvider><AppShell /></AuthSessionProvider>
     </AppSettingsProvider>
   );
 }
