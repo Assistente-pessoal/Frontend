@@ -1,63 +1,42 @@
-name: Synapse - Gerar APK Android
+
+name: Gerar APK Android - VOX
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "**"
   workflow_dispatch:
-
-permissions:
-  contents: read
 
 jobs:
   build-android:
-    name: Compilar e disponibilizar APK
+    name: Compilar APK
     runs-on: ubuntu-latest
-    timeout-minutes: 180
 
     steps:
-      - name: Baixar código do repositório privado
+      - name: Baixar código do repositório
         uses: actions/checkout@v5
 
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: 22
           cache: npm
+
+      - name: Configurar Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
 
       - name: Instalar dependências
         run: npm ci
 
-      - name: Autenticar no Expo e instalar EAS CLI
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-          packager: npm
+      - name: Verificar projeto Expo
+        run: npx expo-doctor
 
-      - name: Verificar acesso ao projeto no EAS
-        run: eas project:info
-
-      - name: Gerar APK (perfil preview)
-        run: eas build --platform android --profile preview --non-interactive --wait --json > eas-build.json
-
-      - name: Baixar e verificar APK gerado
-        shell: bash
+      - name: Gerar APK
         run: |
-          set -euo pipefail
-          APK_URL="$(jq -r '(if type == "array" then .[0] else . end) | (.artifacts.applicationArchiveUrl // .artifacts.buildUrl // empty)' eas-build.json)"
-          if [ -z "$APK_URL" ]; then
-            echo "::error::EAS não retornou um link para o APK. Confira a compilação no painel do Expo."
-            exit 1
-          fi
-          mkdir -p artifacts
-          curl --fail --location --retry 3 --silent --show-error \
-            --output artifacts/Synapse-Android.apk "$APK_URL"
-          unzip -t -q artifacts/Synapse-Android.apk > /dev/null
-          echo '### APK do Synapse pronto' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Abra a seção **Artifacts** desta execução para baixar o Synapse-Android-APK.' >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Disponibilizar APK no GitHub Actions
-        uses: actions/upload-artifact@v4
-        with:
-          name: Synapse-Android-APK
-          path: artifacts/Synapse-Android.apk
-          if-no-files-found: error
-          retention-days: 14
+          CI=1 npx expo prebuild --platform android
+          cd android
+          ./gradlew assembleRelease
