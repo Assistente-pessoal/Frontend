@@ -10,7 +10,7 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "O Synapse usa reconhecimento de voz para transcrever seus lembretes.",
+        "NSSpeechRecognitionUsageDescription": "O Synapse usa o reconhecimento de voz configurado no aparelho.",
         "NSMicrophoneUsageDescription": "O Synapse precisa acessar o microfone para transcrever seus lembretes."
       }
     },
@@ -66,11 +66,21 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
+    "expo": {
+      "name": "Synapse",
+      "owner": "ssasurus-team",
+      "extra": {
+        "eas": {
+          "projectId": "dfhe5dVILNbrEun2BdfjfnImz6f2xLEFZHEJnlej"
+        }
+      }
+    },
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "8001b43d-c8da-4ab1-9b50-949cc44915e5"
+        "projectId": "434b8b50-579a-4bd2-b3d4-0d470206f992"
       }
-    }
+    },
+    "owner": "ssasuru"
   }
 }
