@@ -1,18 +1,19 @@
-
-name: Gerar APK Android - VOX
+name: Gerar APK Android - Synapse
 
 on:
   push:
     branches:
       - main
-    paths:
-      - "**"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build-android:
-    name: Compilar APK
+    name: Compilar e disponibilizar APK
     runs-on: ubuntu-latest
+    timeout-minutes: 90
 
     steps:
       - name: Baixar código do repositório
@@ -40,3 +41,27 @@ jobs:
           CI=1 npx expo prebuild --platform android
           cd android
           ./gradlew assembleRelease
+
+      - name: Localizar APK gerado
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          shopt -s nullglob
+          apks=(android/app/build/outputs/apk/release/*.apk)
+          if [ ${#apks[@]} -eq 0 ]; then
+            echo 'Nenhum APK encontrado em android/app/build/outputs/apk/release/' >&2
+            find android/app/build/outputs -type f \( -name '*.apk' -o -name '*.aab' \) -print || true
+            exit 1
+          fi
+          cp "${apks[0]}" artifacts/Synapse-Android.apk
+          ls -lh artifacts/Synapse-Android.apk
+
+      - name: Publicar APK nos Artifacts do GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: Synapse-Android-APK
+          path: artifacts/Synapse-Android.apk
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
