@@ -4,7 +4,7 @@ import { useReminderSession } from '@/context/reminder-session';
 import {
   ActivityIndicator,
   Animated,
-  KeyboardAvoidingView,
+  Keyboard,
   Platform,
   Pressable,
   ScrollView,
@@ -144,10 +144,19 @@ export function ReminderComposer() {
   const isTabletLayout = width >= 600 && width < 1100;
   const isCompactLayout = width < 380;
   const isMobileWeb = Platform.OS === 'web' && width < 768;
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
   // The composer is part of the screen layout (not absolutely positioned).
   // Cap its height on short devices and let the notice area scroll internally.
-  const maxComposerHeight = Math.max(180, Math.min(420, Math.round(height * 0.58)));
-  const maxNoticeHeight = Math.max(48, Math.min(128, Math.round(height * 0.17)));
+  const maxComposerHeight = keyboardVisible
+    ? Math.max(180, Math.min(290, Math.round(height * 0.42)))
+    : Math.max(180, Math.min(420, Math.round(height * 0.58)));
+  const maxNoticeHeight = keyboardVisible ? 66 : Math.max(48, Math.min(128, Math.round(height * 0.17)));
   const inputRef = useRef<TextInput>(null);
   const { focusComposer: focusComposerParam } = useGlobalSearchParams<{ focusComposer?: string }>();
 
@@ -375,9 +384,9 @@ export function ReminderComposer() {
   // Draft, recording state and feedback stay intact across both screens.
   return (
     <SafeAreaView
-      edges={['bottom', 'left', 'right']}
+      edges={keyboardVisible ? ['left', 'right'] : ['bottom', 'left', 'right']}
       style={{ backgroundColor: appColors.background, width: '100%', minWidth: 0 }}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View>
           <Animated.View style={[styles.composerDock, isMobileWeb && styles.composerDockMobileWeb, (isTabletLayout || isWideLayout) && styles.composerDockWide, height < 650 && styles.composerDockShort, { opacity: entrance, transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) }] }]}>
             <View style={styles.composerPanelShadow}>
             <View style={[styles.composerPanel, themeStyles.composerPanel, { maxHeight: maxComposerHeight }]}>
@@ -399,8 +408,8 @@ export function ReminderComposer() {
 
               <View style={styles.composerTopline}>
                 <View style={[styles.composerBrandIcon, themeStyles.composerBrandIcon]}><Text style={[styles.composerBrandGlyph, { color: appColors.onAccentContainer }]}>✦</Text></View>
-                <Text style={[styles.composerLabel, { color: appColors.text }]}>{recognizing ? 'O Synapse está ouvindo…' : 'Mensagem para o Synapse'}</Text>
-                <Text style={[styles.characterCount, { color: appColors.muted }]}>{transcript.length}/2000</Text>
+                <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.composerLabel, { color: appColors.text }]}>{recognizing ? 'O Synapse está ouvindo…' : 'Mensagem para o Synapse'}</Text>
+                <Text numberOfLines={1} style={[styles.characterCount, { color: appColors.muted }]}>{transcript.length}/2000</Text>
               </View>
 
               <TextInput
@@ -438,7 +447,6 @@ export function ReminderComposer() {
                     <Text style={[styles.clearButtonText, { color: appColors.muted }]}>×</Text>
                     <Text style={[styles.clearButtonLabel, { color: appColors.muted }]}>Limpar</Text>
                   </Pressable>
-                  {!isCompactLayout ? <Text style={[styles.composerPrivacy, { color: appColors.muted }]}>Privado · só o texto revisado é enviado</Text> : null}
                 </View>
 
                 <View style={styles.composerActionsRight}>
@@ -474,9 +482,9 @@ export function ReminderComposer() {
               </View>
             </View>
             </View>
-            {isCompactLayout ? <Text style={[styles.dockCaption, { color: appColors.muted }]}>Toque no microfone para falar ou escreva sua mensagem</Text> : null}
+            {isCompactLayout && !keyboardVisible ? <Text style={[styles.dockCaption, { color: appColors.muted }]}>Toque no microfone para falar ou escreva sua mensagem</Text> : null}
           </Animated.View>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -494,12 +502,12 @@ const styles = StyleSheet.create({
   homeHeadline: { fontSize: 26, lineHeight: 34, fontWeight: '800', textAlign: 'center', letterSpacing: -0.5 },
   homeDescription: { fontSize: 13, lineHeight: 21, textAlign: 'center', maxWidth: 300 },
   container: { width: '100%', maxWidth: 1180, minWidth: 0, alignSelf: 'center', paddingBottom: 26 },
-  composerDock: { position: 'relative', width: '100%', flexShrink: 0, zIndex: 15, alignItems: 'center', paddingHorizontal: 12, paddingTop: 6, paddingBottom: 8 },
+  composerDock: { position: 'relative', width: '100%', flexShrink: 0, zIndex: 15, alignItems: 'center', paddingHorizontal: 10, paddingTop: 6, paddingBottom: 8 },
   composerDockMobileWeb: { paddingHorizontal: 10 },
   composerDockWide: { paddingHorizontal: 28, paddingBottom: 12 },
   composerDockShort: { paddingTop: 4, paddingBottom: 4 },
   composerPanelShadow: { width: '100%', maxWidth: 860, minWidth: 0, borderRadius: 28, shadowColor: '#000000', shadowOpacity: 0.13, shadowRadius: 22, shadowOffset: { width: 0, height: 7 }, elevation: 9 },
-  composerPanel: { width: '100%', minWidth: 0, minHeight: 0, borderRadius: 28, borderWidth: 1, borderColor: '#DDE5DE', backgroundColor: palette.surface, paddingHorizontal: 15, paddingTop: 11, paddingBottom: 10, overflow: 'hidden' },
+  composerPanel: { width: '100%', minWidth: 0, minHeight: 0, borderRadius: 28, borderWidth: 1, borderColor: '#DDE5DE', backgroundColor: palette.surface, paddingHorizontal: 12, paddingTop: 11, paddingBottom: 10, overflow: 'hidden' },
   noticeViewport: { flexShrink: 1, minHeight: 0, marginBottom: 5 },
   noticeList: { gap: 0, paddingBottom: 1 },
   notice: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, paddingHorizontal: 11, paddingVertical: 9, borderRadius: 13, marginBottom: 8, borderWidth: 1 },
@@ -515,7 +523,7 @@ const styles = StyleSheet.create({
   noticeIconText: { fontSize: 11, fontWeight: '900' },
   noticeIconTextError: { color: palette.red },
   noticeIconTextInfo: { color: palette.green },
-  noticeCopy: { flex: 1, gap: 2 },
+  noticeCopy: { flex: 1, minWidth: 0, gap: 2 },
   noticeTitle: { fontSize: 10, fontWeight: '800' },
   noticeTitleError: { color: palette.red },
   noticeTitleInfo: { color: palette.green },
@@ -529,16 +537,16 @@ const styles = StyleSheet.create({
   composerTopline: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
   composerBrandIcon: { width: 23, height: 23, borderRadius: 8, backgroundColor: palette.greenSoft, alignItems: 'center', justifyContent: 'center' },
   composerBrandGlyph: { color: palette.green, fontSize: 14, fontWeight: '900' },
-  composerLabel: { flex: 1, color: palette.ink, fontSize: 10, fontWeight: '800' },
-  characterCount: { color: '#92988F', fontSize: 9, fontWeight: '600' },
+  composerLabel: { flex: 1, minWidth: 0, color: palette.ink, fontSize: 12, fontWeight: '800' },
+  characterCount: { flexShrink: 0, color: '#92988F', fontSize: 10, fontWeight: '600' },
   composerInput: { minHeight: 38, maxHeight: 88, paddingHorizontal: 1, paddingVertical: 7, color: palette.ink, fontSize: 13, lineHeight: 19, outlineStyle: 'none' as any, flexShrink: 1 },
-  composerBottomRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 1 },
-  composerBottomLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
+  composerBottomRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginTop: 1, minWidth: 0 },
+  composerBottomLeft: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1, minWidth: 0 },
   clearButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, justifyContent: 'center', borderRadius: 16 },
   clearButtonText: { color: palette.muted, fontSize: 19, lineHeight: 22, fontWeight: '400' },
   clearButtonLabel: { color: palette.muted, fontSize: 9, fontWeight: '700' },
   composerPrivacy: { color: '#92988F', fontSize: 9 },
-  composerActionsRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  composerActionsRight: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 8 },
   composerMicButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: palette.lime, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#D2E4B7' },
   composerMicButtonRecording: { backgroundColor: '#F8DCD8', borderColor: '#E8C1BA' },
   composerSendButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: palette.green, alignItems: 'center', justifyContent: 'center' },
