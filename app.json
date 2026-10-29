@@ -1,8 +1,7 @@
-
 {
   "expo": {
     "name": "Synapse",
-    "slug": "synapse-agenda",
+    "slug": "synapse-build",
     "owner": "ssasuru",
     "version": "1.0.0",
     "orientation": "default",
@@ -12,7 +11,7 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "O Synapse usa reconhecimento de voz para transcrever seus lembretes.",
+        "NSSpeechRecognitionUsageDescription": "O Synapse usa o reconhecimento de voz configurado no aparelho.",
         "NSMicrophoneUsageDescription": "O Synapse precisa acessar o microfone para transcrever seus lembretes."
       }
     },
@@ -71,7 +70,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "ff849b8f-42cb-4bc4-9af1-5af91a1b1e8a"
+        "projectId": "fe42f9f9-11d9-406f-b0a8-84da4231e4f1"
       }
     }
   }
