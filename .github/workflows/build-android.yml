@@ -1,13 +1,12 @@
 name: Synapse - Gerar APK Android (EAS)
 
 on:
-  # Automaticamente ao publicar nesta branch. Adicione main quando estiver pronto.
   push:
     branches:
-      - feature/autenticacao
-  # Também permite execução manual na aba Actions.
-  workflow_dispatch:
+      - main
 
+  workflow_dispatch:
+    
 permissions:
   contents: read
 
