@@ -19,10 +19,10 @@ export default function SettingsScreen() {
   const wide = width >= 720;
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right', 'bottom']} style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingTop: 76, paddingHorizontal: compact ? 16 : wide ? 32 : 22 }]}
+        contentContainerStyle={[styles.content, { paddingTop: 20, paddingHorizontal: compact ? 16 : wide ? 32 : 22 }]}
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Pressable accessibilityRole="button" accessibilityLabel="Voltar" android_ripple={{ color: colors.accentContainer, borderless: true }} onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.surface, borderColor: colors.outline }]}>

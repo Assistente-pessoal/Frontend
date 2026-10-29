@@ -31,7 +31,7 @@ export default function HomeScreen() {
   }, [entrance, settings.animationsEnabled]));
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['left', 'right']}>
       <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingHorizontal: width < 360 ? 16 : width < 600 ? 20 : 32 }]} showsVerticalScrollIndicator={false}>
         <Animated.View style={[styles.intro, keyboardVisible && styles.introTyping, { opacity: entrance, transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
           {!keyboardVisible && <View style={[styles.symbol, { backgroundColor: colors.accentContainer }]} accessible={false}>
@@ -48,9 +48,9 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, width: '100%', minWidth: 0, overflow: 'hidden' },
   scroll: { flex: 1, width: '100%', minWidth: 0 },
-  content: { flexGrow: 1, width: '100%', minWidth: 0, paddingTop: 94, paddingBottom: 16, justifyContent: 'center' },
+  content: { flexGrow: 1, width: '100%', minWidth: 0, paddingTop: 16, paddingBottom: 16, justifyContent: 'center' },
   intro: { alignSelf: 'center', width: '100%', maxWidth: 480, gap: 12, alignItems: 'center', paddingBottom: 30 },
-  contentTyping: { justifyContent: 'flex-start', paddingTop: 94 },
+  contentTyping: { justifyContent: 'flex-start', paddingTop: 16 },
   introTyping: { paddingBottom: 4, gap: 4 },
   headingTyping: { fontSize: 19, lineHeight: 27 },
   symbol: { width: 60, height: 60, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },

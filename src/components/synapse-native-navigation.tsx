@@ -1,10 +1,9 @@
 /**
- * Android/iOS drawer rendered OUTSIDE Expo Router's TabList.
- * TabList describes routes only; it is deliberately hidden on native devices.
- * Keeping the navigation overlay here makes it independent of TabSlot clipping
- * and ensures both the button and the edge swipe target receive touch events.
+ * Android/iOS navigation shell: the always-visible header participates in the
+ * normal flex layout. Only the gesture target and drawer use an overlay.
+ * The navigator stays mounted while the drawer opens, preserving composer state.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { router, usePathname } from 'expo-router';
 import {
   Animated, Keyboard, PanResponder, Pressable, ScrollView,
@@ -23,7 +22,7 @@ const destinations: Destination[] = [
   { href: '/settings', label: 'Configurações', icon: '⚙' },
 ];
 
-export function SynapseNativeNavigation() {
+export function SynapseNativeNavigation({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -65,23 +64,21 @@ export function SynapseNativeNavigation() {
 
   const navigate = useCallback((href: Destination['href']) => {
     close();
-    if (pathname !== href) router.navigate(href);
+    if (pathname !== href) router.replace(href);
   }, [close, pathname]);
 
   const newReminder = () => {
     close();
-    router.navigate({ pathname: '/', params: { focusComposer: String(Date.now()) } } as never);
+    router.replace({ pathname: '/', params: { focusComposer: String(Date.now()) } } as never);
   };
 
   const onReminders = pathname === '/reminders';
   const shortcut: Destination['href'] = onReminders ? '/' : '/reminders';
 
   return (
-    <View pointerEvents="box-none" style={styles.overlay}>
-      {!open && <View {...edgeResponder.panHandlers} style={styles.edgeTarget} />}
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { paddingTop: insets.top, paddingHorizontal: width < 360 ? 10 : 16, backgroundColor: colors.background }]}>
 
-      {!open && (
-        <View pointerEvents="box-none" style={[styles.header, { top: insets.top + 5, paddingHorizontal: width < 360 ? 10 : 16 }]}>
           <Pressable
             accessibilityRole="button" accessibilityLabel="Abrir menu" accessibilityHint="Abre a navegação e as configurações"
             accessibilityState={{ expanded: false }}
@@ -102,8 +99,10 @@ export function SynapseNativeNavigation() {
               {onReminders ? (width < 330 ? '⌂' : '⌂  Início') : (width < 330 ? '▤' : '▤  Lembretes')}
             </Text>
           </Pressable>
-        </View>
-      )}
+      </View>
+      <View style={styles.body}>{children}</View>
+      <View pointerEvents="box-none" style={styles.overlay}>
+        {!open && <View {...edgeResponder.panHandlers} style={[styles.edgeTarget, { top: insets.top + 60 }]} />}
 
       {drawerMounted && (
         <Animated.View pointerEvents={open ? 'auto' : 'none'} style={[styles.scrim, { opacity: progress }]}>
@@ -160,14 +159,17 @@ export function SynapseNativeNavigation() {
           </ScrollView>
         </Animated.View>
       )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1, width: '100%', minWidth: 0, minHeight: 0 },
+  body: { flex: 1, width: '100%', minHeight: 0, minWidth: 0 },
   overlay: { ...StyleSheet.absoluteFillObject, zIndex: 200, elevation: 200 },
-  edgeTarget: { position: 'absolute', left: 0, top: 78, bottom: 0, width: 36, zIndex: 1 },
-  header: { position: 'absolute', left: 0, right: 0, height: 54, flexDirection: 'row', alignItems: 'center', gap: 9, zIndex: 3, minWidth: 0 },
+  edgeTarget: { position: 'absolute', left: 0, bottom: 0, width: 28, zIndex: 1 },
+  header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 9, minWidth: 0, paddingBottom: 7 },
   menuButton: { width: 46, height: 46, flexShrink: 0, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   bars: { height: 17, width: 19, justifyContent: 'space-between' },
   bar: { height: 2.2, width: '100%', borderRadius: 2 },
