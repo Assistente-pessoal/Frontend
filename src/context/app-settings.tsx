@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { PropsWithChildren } from 'react';
+import { useColorScheme } from 'react-native';
 import { readAppSettings, writeAppSettings } from '@/utils/settings-storage';
 
-export type AppTheme = 'light' | 'dark';
+export type AppTheme = 'system' | 'light' | 'dark';
 export type AppAccent = 'green' | 'turquoise' | 'purple' | 'beige' | 'monochrome';
 export type AppFontFamily = 'system' | 'serif' | 'rounded';
 
@@ -17,8 +18,9 @@ export type AppSettings = {
 
 const DEFAULT_SETTINGS: AppSettings = {
   fontScale: 1,
-  theme: 'light',
-  accent: 'green',
+  theme: 'system',
+  // Neutral is the default accent; the light/dark appearance still follows the device.
+  accent: 'monochrome',
   fontFamily: 'system',
   highContrast: false,
   animationsEnabled: true,
@@ -27,6 +29,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 type SettingsContextValue = {
   settings: AppSettings;
   ready: boolean;
+  resolvedTheme: 'light' | 'dark';
   updateSettings: (updates: Partial<AppSettings>) => void;
   resetSettings: () => void;
 };
@@ -49,7 +52,7 @@ function normalizeSettings(value: LegacySettings | null | undefined): AppSetting
 
   return {
     fontScale,
-    theme: value?.theme === 'dark' ? 'dark' : 'light',
+    theme: value?.theme === 'dark' || value?.theme === 'light' ? value.theme : 'system',
     accent,
     fontFamily,
     highContrast: typeof value?.highContrast === 'boolean' ? value.highContrast : false,
@@ -62,6 +65,10 @@ function normalizeSettings(value: LegacySettings | null | undefined): AppSetting
 export function AppSettingsProvider({ children }: PropsWithChildren) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [ready, setReady] = useState(false);
+  const systemTheme = useColorScheme();
+  const resolvedTheme: 'light' | 'dark' = settings.theme === 'system'
+    ? (systemTheme === 'dark' ? 'dark' : 'light')
+    : settings.theme;
 
   useEffect(() => {
     let active = true;
@@ -91,8 +98,8 @@ export function AppSettingsProvider({ children }: PropsWithChildren) {
   const resetSettings = useCallback(() => setSettings(DEFAULT_SETTINGS), []);
 
   const value = useMemo(
-    () => ({ settings, ready, updateSettings, resetSettings }),
-    [settings, ready, updateSettings, resetSettings],
+    () => ({ settings, ready, resolvedTheme, updateSettings, resetSettings }),
+    [settings, ready, resolvedTheme, updateSettings, resetSettings],
   );
 
   return <AppSettingsContext.Provider value={value}>{children}</AppSettingsContext.Provider>;

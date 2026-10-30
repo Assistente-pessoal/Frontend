@@ -30,7 +30,7 @@ function isWhite(color?: string) {
 }
 
 export function AppText({ style, ...props }: TextProps) {
-  const { settings } = useAppSettings();
+  const { settings, resolvedTheme } = useAppSettings();
   const palette = getAppPalette(settings);
   const flattened = (StyleSheet.flatten(style) || {}) as TextStyle;
   const fontSize = typeof flattened.fontSize === 'number' ? flattened.fontSize * settings.fontScale : undefined;
@@ -41,7 +41,7 @@ export function AppText({ style, ...props }: TextProps) {
     || originalColor === palette.onAccentContainer.toUpperCase();
   const accessibleColor = settings.highContrast
     ? (explicitAccentForeground || (originalColor && isWhite(originalColor)) ? flattened.color : palette.text)
-    : settings.theme === 'dark' && originalColor
+    : resolvedTheme === 'dark' && originalColor
       ? darkTextColors[originalColor] || flattened.color
       : !flattened.color
         ? palette.text

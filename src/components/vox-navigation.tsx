@@ -18,7 +18,7 @@ export function VoxMenuTabButton({ children, isFocused, ...props }: TabTriggerSl
   const { settings } = useAppSettings();
   const palette = getAppPalette(settings);
   const colors = { muted: palette.muted, green: palette.accent, soft: palette.accentContainer, ripple: palette.accentContainer };
-  const icon = isHome ? '⌂' : isSettings ? '⚙' : isReminders ? '▤' : '✦';
+  const icon = isHome ? '⌂' : isSettings ? '⚙' : isReminders ? '▤' : '?';
 
   return (
     <Pressable
@@ -164,7 +164,7 @@ export function VoxMenuList({ children, ...props }: TabListProps) {
         </Pressable>
 
         <View style={[styles.drawerFooter, { backgroundColor: colors.footer }]}>
-          <View style={[styles.footerSparkle, { backgroundColor: palette.accentContainer }]}><Text style={[styles.footerSparkleText, { color: palette.onAccentContainer }]}>✦</Text></View>
+          <View style={[styles.footerMark, { backgroundColor: palette.accentContainer }]}><Text style={[styles.footerMarkText, { color: palette.onAccentContainer }]}>●</Text></View>
           <Text style={[styles.footerTitle, { color: colors.green }]}>Sua rotina, mais leve.</Text>
           <Text style={[styles.footerCopy, { color: colors.footerText }]}>Guarde suas ideias e deixe o Synapse ajudar a lembrar do que importa.</Text>
         </View>
@@ -215,8 +215,8 @@ const styles = StyleSheet.create({
   newReminderSubtitle: { color: '#D9E9DE', fontSize: 10 },
   newReminderArrow: { color: '#FFFFFF', fontSize: 22, fontWeight: '600' },
   drawerFooter: { marginTop: 'auto', borderRadius: 22, padding: 16, gap: 7 },
-  footerSparkle: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  footerSparkleText: { fontSize: 17 },
+  footerMark: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  footerMarkText: { fontSize: 17 },
   footerTitle: { fontSize: 13, fontWeight: '800' },
   footerCopy: { fontSize: 11, lineHeight: 16 },
   pressed: { opacity: 0.76 },

@@ -1,3 +1,4 @@
+import { Appearance } from 'react-native';
 import type { AppAccent, AppSettings, AppTheme } from '@/context/app-settings';
 
 export type AppPalette = {
@@ -44,9 +45,9 @@ const accents: Record<AppAccent, AccentPair> = {
 };
 
 export function getAppPalette(settings: Pick<AppSettings, 'theme' | 'accent' | 'highContrast'> | { theme: AppTheme; accent: AppAccent; highContrast?: boolean }): AppPalette {
-  const isDark = settings.theme === 'dark';
+  const isDark = settings.theme === 'dark' || (settings.theme === 'system' && Appearance.getColorScheme() === 'dark');
   const contrast = settings.highContrast === true;
-  const pair = accents[settings.accent] ?? accents.green;
+  const pair = accents[settings.accent] ?? accents.monochrome;
   const selected = isDark ? pair.dark : pair.light;
 
   return {

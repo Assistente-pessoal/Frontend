@@ -100,15 +100,15 @@ export default function SettingsScreen() {
             <View style={[styles.iconBubble, { backgroundColor: colors.accentContainer }]}><AppText style={[styles.iconGlyph, { color: colors.onAccentContainer }]}>◐</AppText></View>
             <View style={styles.cardHeaderCopy}>
               <AppText style={[styles.cardTitle, { color: colors.text }]}>Tema do aplicativo</AppText>
-              <AppText style={[styles.cardDescription, { color: colors.muted }]}>A cor de destaque permanece independente do fundo.</AppText>
+              <AppText style={[styles.cardDescription, { color: colors.muted }]}>Siga o tema do dispositivo por padrão ou escolha manualmente. A cor de destaque é independente.</AppText>
             </View>
           </View>
           <View style={[styles.segmented, { backgroundColor: colors.surfaceVariant }]}>
-            {(['light', 'dark'] as AppTheme[]).map((theme) => {
+            {(['system', 'light', 'dark'] as AppTheme[]).map((theme) => {
               const selected = settings.theme === theme;
               return (
                 <Pressable key={theme} accessibilityRole="button" accessibilityState={{ selected }} android_ripple={{ color: colors.accentContainer }} onPress={() => updateSettings({ theme })} style={[styles.segment, selected && { backgroundColor: colors.surface, borderColor: colors.accent, borderWidth: 1 }]}>
-                  <AppText style={[styles.segmentText, { color: selected ? colors.accent : colors.muted }]}>{theme === 'light' ? '☀  Claro' : '☾  Escuro OLED'}</AppText>
+                  <AppText style={[styles.segmentText, { color: selected ? colors.accent : colors.muted }]}>{theme === 'system' ? '◐ Sistema' : theme === 'light' ? '☀ Claro' : '☾ OLED'}</AppText>
                 </Pressable>
               );
             })}
@@ -165,7 +165,7 @@ export default function SettingsScreen() {
 
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
           <View style={styles.settingRow}>
-            <View style={[styles.iconBubble, { backgroundColor: colors.accentContainer }]}><AppText style={[styles.iconGlyph, { color: colors.onAccentContainer }]}>✦</AppText></View>
+            <View style={[styles.iconBubble, { backgroundColor: colors.accentContainer }]}><AppText style={[styles.iconGlyph, { color: colors.onAccentContainer }]}>◌</AppText></View>
             <View style={styles.cardHeaderCopy}>
               <AppText style={[styles.cardTitle, { color: colors.text }]}>Animações</AppText>
               <AppText style={[styles.cardDescription, { color: colors.muted }]}>Ative ou desative movimentos e transições.</AppText>

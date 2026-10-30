@@ -13,9 +13,9 @@ import { ReminderSessionProvider } from '@/context/reminder-session';
 SplashScreen.preventAutoHideAsync();
 
 function AppShell() {
-  const { settings } = useAppSettings();
+  const { settings, resolvedTheme } = useAppSettings();
   const palette = getAppPalette(settings);
-  const baseTheme = settings.theme === 'dark' ? DarkTheme : DefaultTheme;
+  const baseTheme = resolvedTheme === 'dark' ? DarkTheme : DefaultTheme;
   // Keep React Navigation surfaces in sync with the OLED palette.
   const activeTheme = {
     ...baseTheme,
@@ -32,15 +32,15 @@ function AppShell() {
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
     document.documentElement.style.backgroundColor = palette.background;
-    document.documentElement.style.colorScheme = settings.theme;
+    document.documentElement.style.colorScheme = resolvedTheme;
     document.body.style.backgroundColor = palette.background;
     document.documentElement.style.setProperty('--synapse-surface', palette.surface);
     document.documentElement.style.setProperty('--synapse-text', palette.text);
-  }, [palette.background, palette.surface, palette.text, settings.theme]);
+  }, [palette.background, palette.surface, palette.text, resolvedTheme]);
 
   return (
     <ThemeProvider value={activeTheme}>
-      <StatusBar style={settings.theme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
       <AnimatedSplashOverlay />
       <AppTabs />
     </ThemeProvider>
