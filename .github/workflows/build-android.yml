@@ -1,42 +1,67 @@
-
-name: Gerar APK Android - VOX
+name: Synapse - Gerar APK Android (EAS)
 
 on:
   push:
     branches:
       - main
-    paths:
-      - "**"
+
   workflow_dispatch:
+    
+permissions:
+  contents: read
 
 jobs:
   build-android:
-    name: Compilar APK
+    name: Gerar e disponibilizar APK
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     steps:
-      - name: Baixar código do repositório
+      - name: Baixar repositório
         uses: actions/checkout@v5
 
       - name: Configurar Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: '22'
           cache: npm
-
-      - name: Configurar Expo
-        uses: expo/expo-github-action@v8
-        with:
-          expo-version: latest
 
       - name: Instalar dependências
         run: npm ci
 
-      - name: Verificar projeto Expo
+      - name: Validar projeto Expo
         run: npx expo-doctor
 
-      - name: Gerar APK
+      - name: Conectar GitHub ao Expo EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Compilar APK no EAS e aguardar o resultado
+        run: eas build --platform android --profile preview --non-interactive --wait --json > eas-build.json
+
+      - name: Baixar APK gerado pelo Expo
+        shell: bash
         run: |
-          CI=1 npx expo prebuild --platform android
-          cd android
-          ./gradlew assembleRelease
+          node <<'NODE'
+          const fs = require('node:fs');
+          const result = JSON.parse(fs.readFileSync('eas-build.json', 'utf8'));
+          const build = Array.isArray(result) ? result[0] : result;
+          const url = build?.artifacts?.buildUrl;
+          if (!url) {
+            console.error('EAS não retornou URL de APK. Consulte o build na conta Expo.');
+            process.exit(1);
+          }
+          fs.writeFileSync('.eas-apk-url', url);
+          NODE
+          curl --fail --location --retry 3 --output synapse.apk "$(cat .eas-apk-url)"
+          test -s synapse.apk
+
+      - name: Disponibilizar APK para baixar no GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: synapse-android-apk
+          path: synapse.apk
+          if-no-files-found: error
+          retention-days: 14

@@ -41,7 +41,7 @@ export default function RemindersScreen() {
   const statusColor = apiStatus === 'online' ? '#2E9871' : apiStatus === 'offline' ? '#C6535D' : colors.muted;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['left', 'right', 'bottom']}>
       <ScrollView
         ref={scrollRef}
         style={styles.scroll}
@@ -131,7 +131,7 @@ export default function RemindersScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, minWidth: 0, width: '100%', maxWidth: '100%', overflow: 'hidden' },
   scroll: { flex: 1, width: '100%', minWidth: 0 },
-  content: { flexGrow: 1, width: '100%', maxWidth: 1000, alignSelf: 'center', paddingTop: 92, paddingBottom: 22, gap: 18 },
+  content: { flexGrow: 1, width: '100%', maxWidth: 1000, alignSelf: 'center', paddingTop: 18, paddingBottom: 22, gap: 18 },
   animatedContent: { width: '100%', minWidth: 0, gap: 18 },
   heading: { gap: 7, marginBottom: 3 },
   eyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },

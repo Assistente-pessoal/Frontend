@@ -1,17 +1,39 @@
-import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import { Image } from 'expo-image';
+import { useEffect, useRef, useState } from 'react';
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppText as Text } from '@/components/app-text';
+import { AppText } from '@/components/app-text';
 import { getAppPalette } from '@/constants/app-palette';
 import { useAppSettings } from '@/context/app-settings';
 import { useAuthSession } from '@/context/auth-session';
 
 type Mode = 'login' | 'register';
+type Field = 'name' | 'email' | 'password' | 'confirm' | null;
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
+
+function passwordBytes(value: string): number {
+  return Array.from(value).reduce((sum, char) => {
+    const code = char.codePointAt(0) ?? 0;
+    return sum + (code <= 0x7f ? 1 : code <= 0x7ff ? 2 : code <= 0xffff ? 3 : 4);
+  }, 0);
+}
 
 export function AuthScreen() {
   const { width } = useWindowDimensions();
   const { settings } = useAppSettings();
-  const colors = getAppPalette(settings);
+  const palette = getAppPalette(settings);
   const { signIn, signUp, startupMessage } = useAuthSession();
   const [mode, setMode] = useState<Mode>('login');
   const [name, setName] = useState('');
@@ -21,29 +43,108 @@ export function AuthScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [focused, setFocused] = useState<Field>(null);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const switching = useRef(false);
+  const introOpacity = useRef(new Animated.Value(0)).current;
+  const introY = useRef(new Animated.Value(18)).current;
+  const logoScale = useRef(new Animated.Value(1)).current;
+  const modeOpacity = useRef(new Animated.Value(1)).current;
+  const modeY = useRef(new Animated.Value(0)).current;
+  const buttonScale = useRef(new Animated.Value(1)).current;
   const isRegister = mode === 'register';
-  const compact = width < 380;
+  const motionEnabled = settings.animationsEnabled && !reduceMotion;
 
-  function passwordBytes(value: string): number {
-    return Array.from(value).reduce((sum, char) => {
-      const point = char.codePointAt(0) ?? 0;
-      return sum + (point <= 0x7F ? 1 : point <= 0x7FF ? 2 : point <= 0xFFFF ? 3 : 4);
-    }, 0);
+  useEffect(() => {
+    // Na web, respeitar a preferência do navegador sem depender de APIs nativas.
+    if (Platform.OS === 'web') {
+      if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+      const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const onChange = () => setReduceMotion(mediaQuery.matches);
+      onChange();
+      mediaQuery.addEventListener?.('change', onChange);
+      return () => mediaQuery.removeEventListener?.('change', onChange);
+    }
+    let mounted = true;
+    void AccessibilityInfo.isReduceMotionEnabled()
+      .then((enabled) => { if (mounted) setReduceMotion(enabled); })
+      .catch(() => undefined);
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => { mounted = false; subscription.remove(); };
+  }, []);
+
+  // Entrada suave da tela; nenhuma animação quando o usuário optou por reduzir movimentos.
+  useEffect(() => {
+    introOpacity.stopAnimation();
+    introY.stopAnimation();
+    if (!motionEnabled) {
+      introOpacity.setValue(1);
+      introY.setValue(0);
+      return;
+    }
+    introOpacity.setValue(0);
+    introY.setValue(18);
+    Animated.parallel([
+      Animated.timing(introOpacity, { toValue: 1, duration: 360, useNativeDriver: USE_NATIVE_DRIVER }),
+      Animated.spring(introY, { toValue: 0, damping: 17, stiffness: 145, mass: 1, useNativeDriver: USE_NATIVE_DRIVER }),
+    ]).start();
+    return () => { introOpacity.stopAnimation(); introY.stopAnimation(); };
+  }, [motionEnabled, introOpacity, introY]);
+
+  // Movimento de marca discreto e interrompido ao sair da tela.
+  useEffect(() => {
+    if (!motionEnabled) { logoScale.setValue(1); return; }
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(logoScale, { toValue: 1.035, duration: 1850, useNativeDriver: USE_NATIVE_DRIVER }),
+      Animated.timing(logoScale, { toValue: 1, duration: 1850, useNativeDriver: USE_NATIVE_DRIVER }),
+    ]));
+    animation.start();
+    return () => { animation.stop(); logoScale.setValue(1); };
+  }, [motionEnabled, logoScale]);
+
+  function changeMode(next: Mode) {
+    if (busy || switching.current || next === mode) return;
+    const apply = () => {
+      setMode(next);
+      setPassword('');
+      setConfirm('');
+      setError(null);
+      setFocused(null);
+      setShowPassword(false);
+    };
+    if (!motionEnabled) { apply(); return; }
+    switching.current = true;
+    Animated.parallel([
+      Animated.timing(modeOpacity, { toValue: 0, duration: 110, useNativeDriver: USE_NATIVE_DRIVER }),
+      Animated.timing(modeY, { toValue: -5, duration: 110, useNativeDriver: USE_NATIVE_DRIVER }),
+    ]).start(({ finished }) => {
+      if (!finished) { switching.current = false; return; }
+      apply();
+      modeY.setValue(10);
+      Animated.parallel([
+        Animated.timing(modeOpacity, { toValue: 1, duration: 230, useNativeDriver: USE_NATIVE_DRIVER }),
+        Animated.timing(modeY, { toValue: 0, duration: 230, useNativeDriver: USE_NATIVE_DRIVER }),
+      ]).start(() => { switching.current = false; });
+    });
   }
 
-  function switchMode(next: Mode) {
-    if (busy) return;
-    setMode(next);
-    setPassword('');
-    setConfirm('');
-    setError(null);
+  function pressFeedback(pressed: boolean) {
+    if (!motionEnabled) return;
+    Animated.spring(buttonScale, {
+      toValue: pressed ? 0.975 : 1,
+      stiffness: 350,
+      damping: 23,
+      useNativeDriver: USE_NATIVE_DRIVER,
+    }).start();
   }
 
   async function submit() {
     if (busy) return;
     setError(null);
     const address = email.trim();
-    if (!/^\S+@\S+\.\S+$/.test(address)) { setError('Informe um e-mail válido.'); return; }
+    if (!/^\S+@\S+\.\S+$/.test(address) || address.length > 254) {
+      setError('Informe um e-mail válido.'); return;
+    }
     if (isRegister && (name.trim().length < 2 || name.trim().length > 100)) {
       setError('O nome precisa ter entre 2 e 100 caracteres.'); return;
     }
@@ -65,83 +166,118 @@ export function AuthScreen() {
     }
   }
 
+  const textInputStyle = (field: Exclude<Field, null>) => [
+    styles.input,
+    { color: palette.text, backgroundColor: palette.background, borderColor: focused === field ? palette.accent : palette.outline },
+  ];
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]} edges={['top', 'bottom', 'left', 'right']}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.scrollContent, { paddingHorizontal: compact ? 16 : 22 }]}>
-          <View style={[styles.hero, { maxWidth: 440 }]}>
-            <View style={[styles.brandIcon, { backgroundColor: colors.accentContainer }]}>
-              <Text style={[styles.brandGlyph, { color: colors.onAccentContainer }]}>✦</Text>
-            </View>
-            <Text style={[styles.brand, { color: colors.accent }]}>SYNAPSE</Text>
-            <Text style={[styles.title, { color: colors.text }]}>{isRegister ? 'Crie sua conta' : 'Que bom ter você aqui'}</Text>
-            <Text style={[styles.description, { color: colors.muted }]}>
-              {isRegister ? 'Organize suas ideias em um espaço só seu.' : 'Entre para continuar criando e organizando seus lembretes.'}
-            </Text>
-          </View>
-
-          <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
-            <View style={[styles.switchRow, { backgroundColor: colors.surfaceVariant }]}>
-              <Pressable accessibilityRole="button" accessibilityState={{ selected: !isRegister }} onPress={() => switchMode('login')}
-                style={[styles.switchButton, !isRegister && { backgroundColor: colors.accentContainer }]}>
-                <Text style={[styles.switchText, { color: !isRegister ? colors.onAccentContainer : colors.muted }]}>Entrar</Text>
-              </Pressable>
-              <Pressable accessibilityRole="button" accessibilityState={{ selected: isRegister }} onPress={() => switchMode('register')}
-                style={[styles.switchButton, isRegister && { backgroundColor: colors.accentContainer }]}>
-                <Text style={[styles.switchText, { color: isRegister ? colors.onAccentContainer : colors.muted }]}>Criar conta</Text>
-              </Pressable>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.scrollContent, { paddingHorizontal: width < 380 ? 16 : 22 }]}>
+          <Animated.View style={[styles.content, { opacity: introOpacity, transform: [{ translateY: introY }] }]}>
+            <View style={styles.hero}>
+              <Animated.View style={[styles.brandIcon, { transform: [{ scale: logoScale }] }]}>
+                <Image source={require('../../assets/images/synapse-mark.png')} contentFit="contain" style={styles.brandImage} accessibilityLabel="Logo Synapse" />
+              </Animated.View>
+              <AppText style={[styles.brand, { color: palette.accent }]}>SYNAPSE</AppText>
+              <AppText style={[styles.title, { color: palette.text }]}>{isRegister ? 'Seu espaço começa aqui' : 'Que bom ter você aqui'}</AppText>
+              <AppText style={[styles.description, { color: palette.muted }]}>
+                {isRegister ? 'Crie sua conta e deixe seus lembretes organizados.' : 'Entre para continuar criando e organizando seus lembretes.'}
+              </AppText>
             </View>
 
-            {isRegister && (
-              <View style={styles.field}>
-                <Text style={[styles.fieldLabel, { color: colors.text }]}>Nome</Text>
-                <TextInput accessibilityLabel="Nome completo" autoCapitalize="words" autoComplete="name" textContentType="name"
-                  value={name} onChangeText={setName} editable={!busy} maxLength={100} placeholder="Como podemos chamar você?"
-                  placeholderTextColor={colors.muted} style={[styles.input, { color: colors.text, backgroundColor: colors.background, borderColor: colors.outline }]}/>
-              </View>
-            )}
-            <View style={styles.field}>
-              <Text style={[styles.fieldLabel, { color: colors.text }]}>E-mail</Text>
-              <TextInput accessibilityLabel="E-mail" autoCapitalize="none" autoCorrect={false} autoComplete="email"
-                textContentType="emailAddress" keyboardType="email-address" maxLength={254} editable={!busy} value={email}
-                onChangeText={setEmail} placeholder="seu@email.com" placeholderTextColor={colors.muted}
-                style={[styles.input, { color: colors.text, backgroundColor: colors.background, borderColor: colors.outline }]}/>
-            </View>
-            <View style={styles.field}>
-              <Text style={[styles.fieldLabel, { color: colors.text }]}>Senha</Text>
-              <View style={[styles.passwordRow, { backgroundColor: colors.background, borderColor: colors.outline }]}>
-                <TextInput accessibilityLabel="Senha" autoCapitalize="none" autoCorrect={false}
-                  autoComplete={isRegister ? 'new-password' : 'current-password'} secureTextEntry={!showPassword}
-                  value={password} onChangeText={setPassword} editable={!busy} placeholder={isRegister ? 'Mínimo de 10 caracteres' : 'Sua senha'}
-                  placeholderTextColor={colors.muted} style={[styles.passwordInput, { color: colors.text }]}/>
-                <Pressable accessibilityRole="button" accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                  onPress={() => setShowPassword((current) => !current)} style={styles.showButton}>
-                  <Text style={[styles.showText, { color: colors.accent }]}>{showPassword ? 'Ocultar' : 'Mostrar'}</Text>
+            <View style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.outline }]}>
+              <View style={[styles.switchRow, { backgroundColor: palette.surfaceVariant }]} accessibilityRole="tablist">
+                <Pressable
+                  accessibilityRole="tab" accessibilityState={{ selected: !isRegister }} disabled={busy}
+                  onPress={() => changeMode('login')}
+                  style={[styles.switchButton, !isRegister && { backgroundColor: palette.accentContainer }]}>
+                  <AppText style={[styles.switchText, { color: !isRegister ? palette.onAccentContainer : palette.muted }]}>Entrar</AppText>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="tab" accessibilityState={{ selected: isRegister }} disabled={busy}
+                  onPress={() => changeMode('register')}
+                  style={[styles.switchButton, isRegister && { backgroundColor: palette.accentContainer }]}>
+                  <AppText style={[styles.switchText, { color: isRegister ? palette.onAccentContainer : palette.muted }]}>Criar conta</AppText>
                 </Pressable>
               </View>
+
+              <Animated.View style={[styles.form, { opacity: modeOpacity, transform: [{ translateY: modeY }] }]}>
+                {isRegister && (
+                  <View style={styles.field}>
+                    <AppText style={[styles.fieldLabel, { color: palette.text }]}>Nome</AppText>
+                    <TextInput accessibilityLabel="Nome completo" autoCapitalize="words" autoComplete="name" textContentType="name"
+                      value={name} onChangeText={setName} onFocus={() => setFocused('name')} onBlur={() => setFocused(null)}
+                      editable={!busy} maxLength={100} placeholder="Como podemos chamar você?"
+                      placeholderTextColor={palette.muted} style={textInputStyle('name')} />
+                  </View>
+                )}
+                <View style={styles.field}>
+                  <AppText style={[styles.fieldLabel, { color: palette.text }]}>E-mail</AppText>
+                  <TextInput accessibilityLabel="E-mail" autoCapitalize="none" autoCorrect={false}
+                    autoComplete="email" textContentType="emailAddress" keyboardType="email-address"
+                    maxLength={254} editable={!busy} value={email}
+                    onFocus={() => setFocused('email')} onBlur={() => setFocused(null)}
+                    onChangeText={setEmail} placeholder="seu@email.com" placeholderTextColor={palette.muted}
+                    style={textInputStyle('email')} />
+                </View>
+                <View style={styles.field}>
+                  <AppText style={[styles.fieldLabel, { color: palette.text }]}>Senha</AppText>
+                  <View style={[styles.passwordRow, { backgroundColor: palette.background, borderColor: focused === 'password' ? palette.accent : palette.outline }]}>
+                    <TextInput accessibilityLabel="Senha" autoCapitalize="none" autoCorrect={false}
+                      autoComplete={isRegister ? 'new-password' : 'current-password'} secureTextEntry={!showPassword}
+                      value={password} onChangeText={setPassword} onFocus={() => setFocused('password')} onBlur={() => setFocused(null)}
+                      editable={!busy} placeholder={isRegister ? 'Mínimo de 10 caracteres' : 'Sua senha'}
+                      placeholderTextColor={palette.muted} style={[styles.passwordInput, { color: palette.text }]}
+                      onSubmitEditing={() => { if (!isRegister) void submit(); }} />
+                    <Pressable accessibilityRole="button" accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                      accessibilityState={{ disabled: busy }} disabled={busy} hitSlop={8}
+                      onPress={() => setShowPassword((current) => !current)} style={styles.showButton}>
+                      <AppText style={[styles.showText, { color: palette.accent }]}>{showPassword ? 'Ocultar' : 'Mostrar'}</AppText>
+                    </Pressable>
+                  </View>
+                </View>
+                {isRegister && (
+                  <View style={styles.field}>
+                    <AppText style={[styles.fieldLabel, { color: palette.text }]}>Confirmar senha</AppText>
+                    <TextInput accessibilityLabel="Confirmar senha" autoCapitalize="none" autoCorrect={false}
+                      autoComplete="new-password" secureTextEntry={!showPassword}
+                      value={confirm} onChangeText={setConfirm} onFocus={() => setFocused('confirm')} onBlur={() => setFocused(null)}
+                      editable={!busy} placeholder="Digite a senha novamente"
+                      placeholderTextColor={palette.muted} style={textInputStyle('confirm')} />
+                  </View>
+                )}
+
+                {(error || startupMessage) && (
+                  <View style={[styles.feedbackBox, { backgroundColor: palette.surfaceVariant }]}>
+                    <AppText accessibilityRole="alert" style={[styles.feedback, { color: error ? '#D4555E' : palette.muted }]}>
+                      {error || startupMessage}
+                    </AppText>
+                  </View>
+                )}
+
+                <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+                  <Pressable
+                    accessibilityRole="button" accessibilityLabel={isRegister ? 'Criar conta e entrar' : 'Entrar na conta'}
+                    accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => { void submit(); }}
+                    onPressIn={() => pressFeedback(true)} onPressOut={() => pressFeedback(false)}
+                    style={[styles.submit, { backgroundColor: palette.accent }, busy && styles.disabled]}>
+                    {busy ? <ActivityIndicator color={palette.onAccent} /> : (
+                      <AppText style={[styles.submitText, { color: palette.onAccent }]}>
+                        {isRegister ? 'Criar conta' : 'Entrar'}   →
+                      </AppText>
+                    )}
+                  </Pressable>
+                </Animated.View>
+              </Animated.View>
+              <AppText style={[styles.helper, { color: palette.muted }]}>Seus lembretes ficam associados à sua conta.</AppText>
             </View>
-            {isRegister && (
-              <View style={styles.field}>
-                <Text style={[styles.fieldLabel, { color: colors.text }]}>Confirmar senha</Text>
-                <TextInput accessibilityLabel="Confirmar senha" autoCapitalize="none" autoCorrect={false} secureTextEntry={!showPassword}
-                  value={confirm} onChangeText={setConfirm} editable={!busy} placeholder="Digite a senha novamente"
-                  placeholderTextColor={colors.muted} style={[styles.input, { color: colors.text, backgroundColor: colors.background, borderColor: colors.outline }]}/>
-              </View>
-            )}
-            {error || startupMessage ? (
-              <Text accessibilityRole="alert" style={[styles.feedback, { color: error ? '#CC545B' : colors.muted }]}>
-                {error || startupMessage}
-              </Text>
-            ) : null}
-            <Pressable accessibilityRole="button" accessibilityLabel={isRegister ? 'Criar conta e entrar' : 'Entrar na conta'}
-              accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void submit()}
-              style={[styles.submit, { backgroundColor: colors.accent }, busy && { opacity: 0.6 }]}>
-              {busy ? <ActivityIndicator color={colors.onAccent} /> :
-                <Text style={[styles.submitText, { color: colors.onAccent }]}>{isRegister ? 'Criar conta' : 'Entrar'}  →</Text>}
-            </Pressable>
-            <Text style={[styles.helper, { color: colors.muted }]}>Seus lembretes ficam associados à sua conta. Use uma conexão segura para entrar.</Text>
-          </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -149,26 +285,32 @@ export function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, width: '100%' }, flex: { flex: 1 },
-  scrollContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 35, gap: 24 },
-  hero: { width: '100%', alignItems: 'center', gap: 9 },
-  brandIcon: { width: 60, height: 60, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  brandGlyph: { fontSize: 28, fontWeight: '800' },
-  brand: { fontSize: 11, fontWeight: '900', letterSpacing: 2 },
-  title: { fontSize: 27, lineHeight: 34, fontWeight: '800', textAlign: 'center', letterSpacing: -0.8 },
-  description: { fontSize: 13, lineHeight: 21, textAlign: 'center', maxWidth: 350 },
-  formCard: { width: '100%', maxWidth: 440, borderWidth: 1, borderRadius: 28, padding: 20, gap: 16 },
-  switchRow: { borderRadius: 18, padding: 4, flexDirection: 'row', gap: 4 },
-  switchButton: { flex: 1, minHeight: 45, justifyContent: 'center', alignItems: 'center', borderRadius: 15 },
-  switchText: { fontSize: 13, fontWeight: '800' },
-  field: { gap: 8 }, fieldLabel: { fontSize: 12, fontWeight: '700' },
-  input: { minHeight: 54, borderWidth: 1, borderRadius: 16, paddingHorizontal: 15, fontSize: 14 },
-  passwordRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 16 },
-  passwordInput: { flex: 1, minHeight: 54, paddingLeft: 15, fontSize: 14, minWidth: 0 },
-  showButton: { paddingHorizontal: 12, minHeight: 48, justifyContent: 'center' },
+  flex: { flex: 1 },
+  safeArea: { flex: 1, width: '100%', maxWidth: '100%' },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 26 },
+  content: { width: '100%', maxWidth: 440, alignSelf: 'center', gap: 22 },
+  hero: { alignItems: 'center', gap: 9 },
+  brandIcon: { width: 72, height: 72, borderRadius: 23, overflow: 'hidden', backgroundColor: '#1E1E1E', alignItems: 'center', justifyContent: 'center' },
+  brandImage: { width: 72, height: 72 },
+  brand: { fontSize: 10, fontWeight: '900', letterSpacing: 2.5 },
+  title: { fontSize: 26, lineHeight: 33, fontWeight: '900', textAlign: 'center', letterSpacing: -0.6 },
+  description: { fontSize: 12, lineHeight: 19, textAlign: 'center', maxWidth: 340 },
+  card: { width: '100%', borderWidth: 1, borderRadius: 27, padding: 18, gap: 17 },
+  switchRow: { flexDirection: 'row', borderRadius: 17, padding: 4, gap: 4 },
+  switchButton: { flex: 1, minHeight: 42, justifyContent: 'center', alignItems: 'center', borderRadius: 14 },
+  switchText: { fontSize: 12, fontWeight: '800' },
+  form: { gap: 15 },
+  field: { gap: 7 },
+  fieldLabel: { fontSize: 12, fontWeight: '700' },
+  input: { minHeight: 48, borderRadius: 14, paddingHorizontal: 14, borderWidth: 1, fontSize: 14 },
+  passwordRow: { minHeight: 48, flexDirection: 'row', borderRadius: 14, borderWidth: 1, alignItems: 'center' },
+  passwordInput: { flex: 1, minWidth: 0, paddingVertical: 12, paddingHorizontal: 14, fontSize: 14 },
+  showButton: { minHeight: 46, justifyContent: 'center', paddingHorizontal: 14 },
   showText: { fontSize: 12, fontWeight: '800' },
-  feedback: { fontSize: 12, lineHeight: 19 },
-  submit: { minHeight: 55, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  submitText: { fontSize: 14, fontWeight: '800' },
-  helper: { fontSize: 11, lineHeight: 17, textAlign: 'center' },
+  submit: { minHeight: 49, alignItems: 'center', justifyContent: 'center', borderRadius: 15 },
+  submitText: { fontSize: 14, fontWeight: '900' },
+  feedbackBox: { padding: 11, borderRadius: 12 },
+  feedback: { fontSize: 11, lineHeight: 17 },
+  helper: { fontSize: 10, lineHeight: 16, textAlign: 'center' },
+  disabled: { opacity: 0.65 },
 });

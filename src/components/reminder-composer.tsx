@@ -24,7 +24,6 @@ import {
 
 import { createVoxReminder, VoxApiHttpError } from '@/services/vox-api';
 import { scheduleLocalReminder } from '@/services/vox-notifications';
-import { getAccessToken } from '@/services/auth-token';
 
 const palette = {
   ink: '#212421',
@@ -138,8 +137,8 @@ function FeedbackNotice({ tone, title, message, isDark = false }: FeedbackNotice
 
 export function ReminderComposer() {
   const { width, height } = useWindowDimensions();
-  const { settings } = useAppSettings();
-  const isDark = settings.theme === 'dark';
+  const { settings, resolvedTheme } = useAppSettings();
+  const isDark = resolvedTheme === 'dark';
   const appColors = getAppPalette(settings);
   const isWideLayout = width >= 1100;
   const isTabletLayout = width >= 600 && width < 1100;
@@ -155,9 +154,9 @@ export function ReminderComposer() {
   // The composer is part of the screen layout (not absolutely positioned).
   // Cap its height on short devices and let the notice area scroll internally.
   const maxComposerHeight = keyboardVisible
-    ? Math.max(180, Math.min(290, Math.round(height * 0.42)))
+    ? Math.max(132, Math.min(200, Math.round(height * 0.34)))
     : Math.max(180, Math.min(420, Math.round(height * 0.58)));
-  const maxNoticeHeight = keyboardVisible ? 66 : Math.max(48, Math.min(128, Math.round(height * 0.17)));
+  const maxNoticeHeight = keyboardVisible ? 38 : Math.max(48, Math.min(128, Math.round(height * 0.17)));
   const inputRef = useRef<TextInput>(null);
   const { focusComposer: focusComposerParam } = useGlobalSearchParams<{ focusComposer?: string }>();
 
@@ -314,15 +313,12 @@ export function ReminderComposer() {
       return;
     }
 
-    const sessionAtStart = getAccessToken();
     setSubmitting(true);
     setErrorMessage('');
     setInfoMessage('Enviando o texto para a agenda-api interpretar…');
 
     try {
       const reminder = await createVoxReminder(text);
-      // Evitar salvar dados em memória ou agendar notificações após troca de conta/logout.
-      if (!sessionAtStart || sessionAtStart !== getAccessToken()) return;
       reportApiResult('online', 'Agenda API conectada e respondendo.');
       setLastSaved(reminder);
 
@@ -376,7 +372,6 @@ export function ReminderComposer() {
 
   const themeStyles = {
     composerPanel: { backgroundColor: appColors.surface, borderColor: appColors.outline },
-    composerBrandIcon: { backgroundColor: appColors.accentContainer },
   };
   const inputFontFamily = settings.fontFamily === 'serif'
     ? Platform.select({ web: 'Georgia', ios: 'Georgia', default: 'serif' })
@@ -391,7 +386,7 @@ export function ReminderComposer() {
       edges={keyboardVisible ? ['left', 'right'] : ['bottom', 'left', 'right']}
       style={{ backgroundColor: appColors.background, width: '100%', minWidth: 0 }}>
       <View>
-          <Animated.View style={[styles.composerDock, isMobileWeb && styles.composerDockMobileWeb, (isTabletLayout || isWideLayout) && styles.composerDockWide, height < 650 && styles.composerDockShort, { opacity: entrance, transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) }] }]}>
+          <Animated.View style={[styles.composerDock, isMobileWeb && styles.composerDockMobileWeb, (isTabletLayout || isWideLayout) && styles.composerDockWide, height < 650 && styles.composerDockShort, keyboardVisible && styles.composerDockKeyboard, { opacity: entrance, transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) }] }]}>
             <View style={styles.composerPanelShadow}>
             <View style={[styles.composerPanel, themeStyles.composerPanel, { maxHeight: maxComposerHeight }]}>
               {errorMessage || infoMessage ? (
@@ -411,7 +406,6 @@ export function ReminderComposer() {
               ) : null}
 
               <View style={styles.composerTopline}>
-                <View style={[styles.composerBrandIcon, themeStyles.composerBrandIcon]}><Text style={[styles.composerBrandGlyph, { color: appColors.onAccentContainer }]}>✦</Text></View>
                 <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.composerLabel, { color: appColors.text }]}>{recognizing ? 'O Synapse está ouvindo…' : 'Mensagem para o Synapse'}</Text>
                 <Text numberOfLines={1} style={[styles.characterCount, { color: appColors.muted }]}>{transcript.length}/2000</Text>
               </View>
@@ -510,6 +504,7 @@ const styles = StyleSheet.create({
   composerDockMobileWeb: { paddingHorizontal: 10 },
   composerDockWide: { paddingHorizontal: 28, paddingBottom: 12 },
   composerDockShort: { paddingTop: 4, paddingBottom: 4 },
+  composerDockKeyboard: { paddingTop: 2, paddingBottom: 2 },
   composerPanelShadow: { width: '100%', maxWidth: 860, minWidth: 0, borderRadius: 28, shadowColor: '#000000', shadowOpacity: 0.13, shadowRadius: 22, shadowOffset: { width: 0, height: 7 }, elevation: 9 },
   composerPanel: { width: '100%', minWidth: 0, minHeight: 0, borderRadius: 28, borderWidth: 1, borderColor: '#DDE5DE', backgroundColor: palette.surface, paddingHorizontal: 12, paddingTop: 11, paddingBottom: 10, overflow: 'hidden' },
   noticeViewport: { flexShrink: 1, minHeight: 0, marginBottom: 5 },
@@ -539,8 +534,6 @@ const styles = StyleSheet.create({
   noticeMessageErrorDark: { color: '#E8C8CA' },
   noticeMessageInfoDark: { color: '#D2D2D2' },
   composerTopline: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
-  composerBrandIcon: { width: 23, height: 23, borderRadius: 8, backgroundColor: palette.greenSoft, alignItems: 'center', justifyContent: 'center' },
-  composerBrandGlyph: { color: palette.green, fontSize: 14, fontWeight: '900' },
   composerLabel: { flex: 1, minWidth: 0, color: palette.ink, fontSize: 12, fontWeight: '800' },
   characterCount: { flexShrink: 0, color: '#92988F', fontSize: 10, fontWeight: '600' },
   composerInput: { minHeight: 38, maxHeight: 88, paddingHorizontal: 1, paddingVertical: 7, color: palette.ink, fontSize: 13, lineHeight: 19, outlineStyle: 'none' as any, flexShrink: 1 },

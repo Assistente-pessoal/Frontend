@@ -69,8 +69,7 @@ export async function scheduleLocalReminder(
   return 'scheduled';
 }
 
-/** Impede que alertas privados de outra conta continuem aparecendo após logout. */
+/** Impede que alertas de uma conta continuem aparecendo após o logout. */
 export async function clearScheduledReminders(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
-  await Notifications.dismissAllNotificationsAsync();
 }

@@ -14,4 +14,5 @@ export async function scheduleLocalReminder(
   return 'unsupported-platform';
 }
 
-export async function clearScheduledReminders(): Promise<void> { /* Notificações nativas indisponíveis na web. */ }
+/** Web não mantém os agendamentos locais do expo-notifications. */
+export async function clearScheduledReminders(): Promise<void> {}

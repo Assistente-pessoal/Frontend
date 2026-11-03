@@ -45,10 +45,10 @@ export default function HelpScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['left', 'right', 'bottom']}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.container, { paddingTop: 76, paddingHorizontal: width < 360 ? 16 : width < 600 ? 20 : isWideLayout ? 42 : 28 }]}
+        contentContainerStyle={[styles.container, { paddingTop: 20, paddingHorizontal: width < 360 ? 16 : width < 600 ? 20 : isWideLayout ? 42 : 28 }]}
         showsVerticalScrollIndicator={false}>
         <Text style={[styles.kicker, { color: colors.green }]}>GUIA RÁPIDO</Text>
         <Text style={[styles.title, { color: colors.text }]}>Como usar o Synapse</Text>

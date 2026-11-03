@@ -1,5 +1,3 @@
-> **Autenticação (Etapa 2):** esta versão exige o backend atualizado com `/auth/login` e `/auth/me`. Veja [INTEGRACAO_AUTENTICACAO.md](./INTEGRACAO_AUTENTICACAO.md) antes de gerar o APK.
-
 # Synapse — Frontend Expo
 
 Aplicativo móvel e web para criação e organização de lembretes por texto ou voz.
@@ -50,7 +48,7 @@ O aplicativo usa automaticamente o endereço publicado da Agenda API (`https://v
 Para apontar para um backend local, crie um arquivo `.env` na raiz e configure `EXPO_PUBLIC_API_URL` com o endereço correto para seu ambiente (por exemplo, `http://localhost:8080` no navegador do próprio computador ou `http://10.0.2.2:8080` no emulador Android). Reinicie o Expo com `npx expo start -c` após alterar o `.env`.
 
 
-As preferências de acessibilidade e aparência ficam no menu hambúrguer em **Configurações**. O aplicativo permite ajustar o tamanho e a família da fonte, alternar entre tema claro/escuro e ativar ou desativar animações.
+As preferências de acessibilidade e aparência ficam no menu hambúrguer em **Configurações**. O aplicativo permite ajustar o tamanho e a família da fonte, usar o tema automático do sistema ou selecionar Claro/Escuro OLED e ativar ou desativar animações.
 
 ## Interface Android
 
@@ -76,4 +74,24 @@ A interface segue uma linguagem inspirada no Material 3 Expressive: superfícies
 
 ### Tema escuro OLED
 
-Ao selecionar **Escuro** em Configurações, o fundo do aplicativo fica preto puro (`#000000`), com cartões em cinza neutro quase preto. As cinco cores de destaque permanecem independentes do tema e continuam aparecendo nos botões, ícones e seleções.
+Ao selecionar **Escuro OLED** em Configurações, o fundo do aplicativo fica preto puro (`#000000`), com cartões em cinza neutro quase preto. As cinco cores de destaque permanecem independentes do tema e continuam aparecendo nos botões, ícones e seleções.
+
+
+## Atualização Android — navegação, teclado e ícones (outubro/2026)
+
+- O painel lateral nativo utiliza `Modal`, abre por toque no menu e pelos gestos nas bordas. Em um APK, testar o toque no ícone, o arraste da borda esquerda para a direita, o gesto inverso da borda direita e o fechamento por toque fora do painel ou botão Voltar.
+- O compositor permanece na árvore de layout, com ajuste apenas da sobreposição real do teclado. Evita deslocar a interface duas vezes quando o Android já redimensiona a janela. Testar especialmente Gboard, Samsung Keyboard, teclados flutuantes e teclado com altura alterada.
+- A opção **Sistema** é o padrão do tema: acompanha as alterações do tema claro/escuro do Android. Temas manuais permanecem disponíveis em Configurações, assim como as cores de destaque independentes. Preferências anteriores selecionadas manualmente são preservadas.
+- Ícones e tela de abertura usam a arte do Synapse fornecida pela equipe. Foram removidos os símbolos decorativos antigos de estrela. O título de boas-vindas tem animação leve de transparência quando as animações estão habilitadas.
+- A configuração EAS e o identificador Android do ZIP recebido foram mantidos. **Antes de gerar APK, confirme em `npx eas project:info` se o `projectId` é o projeto Expo que você pretende utilizar.**
+
+### Verificações antes de publicar
+
+```bash
+npm ci
+npx expo-doctor
+npx tsc --noEmit
+npm run lint
+```
+
+Em seguida, gere e instale um novo APK pelo EAS. Teste o menu, a digitação em teclados de diferentes alturas, os modos claro/escuro automáticos, fontes ampliadas e a atualização do ícone na tela inicial. Mudanças em ícones ou na configuração nativa **exigem uma nova compilação**, não apenas atualizar o JavaScript.

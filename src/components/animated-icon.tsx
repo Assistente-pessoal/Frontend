@@ -1,148 +1,47 @@
+/** Lightweight splash using Synapse branding; no Expo template artwork. */
 import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
-import { useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
-import Animated, { Easing, Keyframe } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
-
-const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
-const DURATION = 600;
+import { useCallback, useRef, useState } from 'react';
+import { Animated, Platform, StyleSheet, View } from 'react-native';
+import { useAppSettings } from '@/context/app-settings';
 
 export function AnimatedSplashOverlay() {
-  const [animate, setAnimate] = useState(false);
+  const { settings } = useAppSettings();
   const [visible, setVisible] = useState(true);
+  const started = useRef(false);
+  const fade = useRef(new Animated.Value(1)).current;
+
+  const reveal = useCallback(() => {
+    if (started.current) return;
+    started.current = true;
+    void SplashScreen.hideAsync().finally(() => {
+      Animated.timing(fade, {
+        toValue: 0,
+        duration: settings.animationsEnabled ? 320 : 0,
+        useNativeDriver: Platform.OS !== 'web',
+      }).start(() => setVisible(false));
+    });
+  }, [fade, settings.animationsEnabled]);
 
   if (!visible) return null;
-
-  const splashKeyframe = new Keyframe({
-    0: {
-      transform: [{ scale: 1 }],
-      opacity: 1,
-    },
-    20: {
-      opacity: 1,
-    },
-    70: {
-      opacity: 0,
-      easing: Easing.elastic(0.7),
-    },
-    100: {
-      opacity: 0,
-      transform: [{ scale: 1 }],
-      easing: Easing.elastic(0.7),
-    },
-  });
-
-  const image = <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />;
-
-  return animate ? (
-    <Animated.View
-      entering={splashKeyframe.duration(DURATION).withCallback((finished) => {
-        'worklet';
-        if (finished) {
-          scheduleOnRN(setVisible, false);
-        }
-      })}
-      style={styles.splashOverlay}>
-      {image}
+  return (
+    <Animated.View pointerEvents="none" onLayout={reveal} style={[styles.splashOverlay, { opacity: fade }]}>
+      <Image style={styles.splashLogo} contentFit="contain" source={require('@/assets/images/synapse-mark.png')} />
     </Animated.View>
-  ) : (
-    <View
-      onLayout={() => {
-        SplashScreen.hideAsync().finally(() => {
-          setAnimate(true);
-        });
-      }}
-      style={styles.splashOverlay}>
-      {image}
-    </View>
   );
 }
-
-const keyframe = new Keyframe({
-  0: {
-    transform: [{ scale: INITIAL_SCALE_FACTOR }],
-  },
-  100: {
-    transform: [{ scale: 1 }],
-    easing: Easing.elastic(0.7),
-  },
-});
-
-const logoKeyframe = new Keyframe({
-  0: {
-    transform: [{ scale: 1.3 }],
-    opacity: 0,
-  },
-  40: {
-    transform: [{ scale: 1.3 }],
-    opacity: 0,
-    easing: Easing.elastic(0.7),
-  },
-  100: {
-    opacity: 1,
-    transform: [{ scale: 1 }],
-    easing: Easing.elastic(0.7),
-  },
-});
-
-const glowKeyframe = new Keyframe({
-  0: {
-    transform: [{ rotateZ: '0deg' }],
-  },
-  100: {
-    transform: [{ rotateZ: '7200deg' }],
-  },
-});
 
 export function AnimatedIcon() {
   return (
     <View style={styles.iconContainer}>
-      <Animated.View entering={glowKeyframe.duration(60 * 1000 * 4)} style={styles.glow}>
-        <Image style={styles.glow} source={require('@/assets/images/logo-glow.png')} />
-      </Animated.View>
-
-      <Animated.View entering={keyframe.duration(DURATION)} style={styles.background} />
-      <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
-        <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />
-      </Animated.View>
+      <Image style={styles.iconImage} contentFit="contain" source={require('@/assets/images/synapse-mark.png')} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  imageContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  glow: {
-    width: 201,
-    height: 201,
-    position: 'absolute',
-  },
-  iconContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 128,
-    height: 128,
-    zIndex: 100,
-  },
-  image: {
-    width: 76,
-    height: 71,
-  },
-  background: {
-    borderRadius: 40,
-    experimental_backgroundImage: `linear-gradient(180deg, #3C9FFE, #0274DF)`,
-    width: 128,
-    height: 128,
-    position: 'absolute',
-  },
-  splashOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: '#208AEF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
+  splashOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: '#1E1E1E', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+  splashLogo: { width: 160, height: 160, borderRadius: 32 },
+  iconContainer: { width: 128, height: 128, alignItems: 'center', justifyContent: 'center' },
+  iconImage: { width: 120, height: 120, borderRadius: 24 },
 });

@@ -1,23 +1,23 @@
 {
   "expo": {
     "name": "Synapse",
-    "slug": "synapse-agenda",
+    "slug": "synapse-build",
     "owner": "ssasuru",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "synapse",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/icon.png",
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "O Synapse usa reconhecimento de voz para transcrever seus lembretes.",
+        "NSSpeechRecognitionUsageDescription": "O Synapse usa o reconhecimento de voz configurado no aparelho.",
         "NSMicrophoneUsageDescription": "O Synapse precisa acessar o microfone para transcrever seus lembretes."
       }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#F7F8F5",
+        "backgroundColor": "#1E1E1E",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -35,11 +35,10 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F7F8F5",
+          "backgroundColor": "#1E1E1E",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
@@ -71,7 +70,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "434b8b50-579a-4bd2-b3d4-0d470206f992"
+        "projectId": "fe42f9f9-11d9-406f-b0a8-84da4231e4f1"
       }
     }
   }
