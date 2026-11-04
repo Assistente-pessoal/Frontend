@@ -1,5 +1,7 @@
 import { router } from 'expo-router';
-import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text as NativeText, useWindowDimensions, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text as NativeText, useWindowDimensions, View } from 'react-native';
+import { useState } from 'react';
+import { useAuthSession } from '@/context/auth-session';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/app-text';
 import { useAppSettings, type AppFontFamily, type AppTheme } from '@/context/app-settings';
@@ -15,6 +17,24 @@ export default function SettingsScreen() {
   const { width } = useWindowDimensions();
   const { settings, updateSettings, resetSettings } = useAppSettings();
   const colors = getAppPalette(settings);
+  const { user, signOut } = useAuthSession();
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function doSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    // The auth provider keeps logout warnings visible after this screen unmounts.
+    await signOut();
+  }
+
+  function confirmSignOut() {
+    if (Platform.OS === 'web') { void doSignOut(); return; }
+    Alert.alert('Sair do Synapse?', 'Seus lembretes permanecerão na conta. As notificações locais agendadas neste aparelho serão canceladas.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Sair', style: 'destructive', onPress: () => { void doSignOut(); } },
+    ]);
+  }
+
   const compact = width < 430;
   const wide = width >= 720;
 
@@ -178,6 +198,23 @@ export default function SettingsScreen() {
               accessibilityLabel="Ativar animações"
             />
           </View>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
+          <View style={styles.cardHeader}>
+            <View style={[styles.iconBubble, { backgroundColor: colors.accentContainer }]}>
+              <AppText style={[styles.iconGlyph, { color: colors.onAccentContainer }]}>♙</AppText>
+            </View>
+            <View style={styles.cardHeaderCopy}>
+              <AppText style={[styles.cardTitle, { color: colors.text }]}>Sua conta</AppText>
+              <AppText style={[styles.cardDescription, { color: colors.muted }]}>{user?.name || 'Usuário'}</AppText>
+              <AppText selectable style={[styles.cardDescription, { color: colors.muted }]}>{user?.email || ''}</AppText>
+            </View>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Sair da conta" disabled={signingOut}
+            onPress={confirmSignOut} style={[styles.resetButton, { borderColor: colors.outline }, signingOut && styles.disabled]}>
+            <AppText style={[styles.resetText, { color: colors.text }]}>{signingOut ? 'Saindo…' : 'Sair da conta'}</AppText>
+          </Pressable>
         </View>
 
         <Pressable accessibilityRole="button" android_ripple={{ color: colors.accentContainer }} onPress={resetSettings} style={[styles.resetButton, { borderColor: colors.outline }]}>

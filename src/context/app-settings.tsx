@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { PropsWithChildren } from 'react';
-import { useColorScheme } from 'react-native';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { readAppSettings, writeAppSettings } from '@/utils/settings-storage';
 
 export type AppTheme = 'system' | 'light' | 'dark';
@@ -28,6 +29,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 type SettingsContextValue = {
   settings: AppSettings;
+  animationsEnabled: boolean;
   ready: boolean;
   resolvedTheme: 'light' | 'dark';
   updateSettings: (updates: Partial<AppSettings>) => void;
@@ -66,6 +68,8 @@ export function AppSettingsProvider({ children }: PropsWithChildren) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [ready, setReady] = useState(false);
   const systemTheme = useColorScheme();
+  const reducedMotion = useReducedMotion();
+  const animationsEnabled = settings.animationsEnabled && !reducedMotion;
   const resolvedTheme: 'light' | 'dark' = settings.theme === 'system'
     ? (systemTheme === 'dark' ? 'dark' : 'light')
     : settings.theme;
@@ -98,8 +102,8 @@ export function AppSettingsProvider({ children }: PropsWithChildren) {
   const resetSettings = useCallback(() => setSettings(DEFAULT_SETTINGS), []);
 
   const value = useMemo(
-    () => ({ settings, ready, resolvedTheme, updateSettings, resetSettings }),
-    [settings, ready, resolvedTheme, updateSettings, resetSettings],
+    () => ({ settings, animationsEnabled, ready, resolvedTheme, updateSettings, resetSettings }),
+    [settings, animationsEnabled, ready, resolvedTheme, updateSettings, resetSettings],
   );
 
   return <AppSettingsContext.Provider value={value}>{children}</AppSettingsContext.Provider>;

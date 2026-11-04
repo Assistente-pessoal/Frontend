@@ -1,97 +1,227 @@
-# Synapse — Frontend Expo
+# Synapse
 
-Aplicativo móvel e web para criação e organização de lembretes por texto ou voz.
+<img src="assets/images/synapse-mark.png" alt="Marca Synapse" width="88" />
 
-## Requisitos
+Lembretes por texto e voz, com uma interface Android e web desenvolvida em React Native e Expo.
+O Synapse permite revisar uma mensagem em linguagem natural, enviá-la à Agenda API e
+agendar uma notificação local quando a interpretação contém uma data e um horário futuros.
 
-- Node.js e npm.
-- Acesso à Agenda API publicada (o app usa `https://vox-backend-latest.onrender.com` automaticamente). Para desenvolvimento local, é necessário também iniciar o backend e suas dependências.
-- Android Studio/SDK para gerar e executar o app Android.
+## Recursos
 
-## Configuração inicial
+- Cadastro, login e sessões autenticadas por tokens opacos Bearer.
+- Composição por texto ou reconhecimento de voz em português brasileiro.
+- Rascunho preservado durante a navegação da sessão, com limpeza ao sair da conta.
+- Confirmação do último lembrete salvo e diagnóstico da conexão com a API.
+- Notificações locais no aplicativo nativo, conforme permissões do dispositivo.
+- Tema do sistema, claro e escuro OLED; cinco cores de destaque, com neutro como padrão.
+- Preferências de fonte, contraste e animações, com persistência local.
+- Layout adaptável, menu lateral e navegação com Expo Router.
 
-1. Instale as dependências com `npm install`.
-2. A Agenda API publicada já é utilizada por padrão. Para apontar para um backend local, copie `.env.example` para `.env` e configure `EXPO_PUBLIC_API_URL`:
-   - Emulador Android: `http://10.0.2.2:8080`.
-   - Celular físico: `http://IP-DA-SUA-MÁQUINA:8080`. O computador e o celular precisam estar na mesma rede e a porta 8080 liberada no firewall.
-3. Gere o projeto nativo e instale o build de desenvolvimento:
+## Arquitetura
 
-   ```bash
-   npx expo prebuild
-   npx expo run:android
-   ```
+| Componente | Responsabilidade | Repositório |
+|---|---|---|
+| Frontend | Interface, sessão, voz e notificações locais | [Frontend](https://github.com/Assistente-pessoal/Frontend) |
+| Agenda API | Autenticação, autorização e persistência MongoDB | [backend-agenda](https://github.com/Assistente-pessoal/backend-agenda) |
+| Interpretador | Extração de título, data, horário, domínio e prioridade | [microservice](https://github.com/Assistente-pessoal/microservice) |
 
-   O Expo Go padrão não contém o módulo nativo de reconhecimento de voz. Não use apenas `npx expo start` para validar o reconhecimento de voz Android. No navegador, use `npx expo start --web`; notificações locais nativas são testadas no app Android/iOS, não no browser.
+O frontend envia **texto**, sem áudio bruto, para a API. A API identifica o usuário,
+consulta o interpretador e persiste o resultado. O interpretador atual usa regras
+determinísticas e expressões regulares; não utiliza um modelo generativo.
 
-## Uso
+Tecnologias principais: **Expo SDK 57**, **React Native 0.86.3**, **React 19.2.3**,
+**TypeScript 6** e **Expo Router**.
 
-1. Toque no botão de microfone e conceda acesso ao microfone.
-2. Diga o lembrete em português.
-3. Revise ou corrija a transcrição no campo editável.
-4. Toque em **Salvar lembrete**. O app envia somente `{ "text": "..." }` para `POST /api/vox/transcriptions`.
-5. Caso a interpretação retorne uma data e um horário futuros, o app tenta agendar uma notificação local. Se o usuário negar notificações, o lembrete continua salvo na API.
+## Executar no navegador
 
-## Compatibilidade de reconhecimento de voz
-
-No Android, o Synapse utiliza o serviço padrão do sistema e não exige reconhecimento offline. Em Android 12 ou anterior, o app Google (`com.google.android.googlequicksearchbox`) deve estar instalado e ativo. Em Android 13 ou superior, utilize Speech Recognition & Synthesis (`com.google.android.tts`). O app tenta priorizar o serviço padrão e usa uma alternativa compatível com a versão do Android quando necessário. O idioma Português (Brasil) também precisa estar disponível no serviço. Se o aparelho não oferecer um mecanismo compatível, o campo de texto continua disponível.
-
-Ajustes de tamanho/família da fonte, tema claro/escuro e animações ficam em **Menu → Configurações** e são salvos no dispositivo.
-
-## Configuração de rede para desenvolvimento
-
-Os builds Android usam HTTPS por padrão. Para testar o backend local sem TLS em um dispositivo Android, use um túnel HTTPS ou configure uma solução nativa específica para desenvolvimento; em produção, use HTTPS.
-
-## Conexão com a Agenda API
-
-O aplicativo usa automaticamente o endereço publicado da Agenda API (`https://vox-backend-latest.onrender.com`) quando `EXPO_PUBLIC_API_URL` não está definido. A conexão é verificada ao iniciar o aplicativo, e seu resultado é exibido em **Lembretes**. Em serviços hospedados que entram em repouso, a primeira resposta pode demorar; a tolerância de requisições é de até 75 segundos.
-
-Para apontar para um backend local, crie um arquivo `.env` na raiz e configure `EXPO_PUBLIC_API_URL` com o endereço correto para seu ambiente (por exemplo, `http://localhost:8080` no navegador do próprio computador ou `http://10.0.2.2:8080` no emulador Android). Reinicie o Expo com `npx expo start -c` após alterar o `.env`.
-
-
-As preferências de acessibilidade e aparência ficam no menu hambúrguer em **Configurações**. O aplicativo permite ajustar o tamanho e a família da fonte, usar o tema automático do sistema ou selecionar Claro/Escuro OLED e ativar ou desativar animações.
-
-## Interface Android
-
-A interface segue uma linguagem inspirada no Material 3 Expressive: superfícies tonais, formas arredondadas adaptáveis, áreas de toque amplas, feedback por ripple no Android e transições com movimento de mola. O menu lateral abre pelo botão no canto superior esquerdo ou por um gesto horizontal iniciado na borda esquerda da tela.
-
-## Navegação e compatibilidade
-
-- **Início:** espaço limpo para escrever ou ditar; o compositor permanece no rodapé.
-- **Lembretes:** botão no canto superior direito ou item do menu hambúrguer; apresenta o último lembrete salvo nesta sessão, a situação da API e orientações. O frontend não inventa histórico de lembretes; uma lista persistente requer uma rota de consulta no backend.
-- **Android 7.0 ou superior:** o Expo SDK 57 usa o mínimo Android API 24. O APK final e cada biblioteca nativa devem ser verificados para garantir o `minSdkVersion=24` no manifesto mesclado.
-- A orientação é livre (retrato/paisagem), e cartões/menus respondem à largura e altura disponíveis, incluindo tablets e dobráveis.
-- O reconhecimento de voz depende do mecanismo disponível no aparelho; a digitação permanece disponível em caso de incompatibilidade. Teste com Android 7, 10, 12, 13 e 16, verificando permissões, TalkBack, teclado e tamanho da fonte.
-- Para confirmar o endereço ativo da API, abra **Lembretes**. Se houver um arquivo `.env` local antigo, remova ou corrija `EXPO_PUBLIC_API_URL` e reinicie com `npx expo start --clear`.
-
-### Testes recomendados antes de publicar
-
-1. `npm ci`, `npx tsc --noEmit`, `npm run lint` e `npx expo-doctor`.
-2. Gerar APK de teste: `npx eas-cli@latest build --profile preview --platform android`.
-3. Instalar o APK em aparelho Android 7 real (ou emulador API 24); verificar se o app instala, inicia, digita, envia para a API, abre o menu e agenda notificações.
-4. Testar Android 16 em tablet/dobrável com rotação e multi-janela; testar alto contraste e TalkBack.
-
-> A disponibilidade do servidor publicado e do serviço de IA precisa ser confirmada no seu ambiente; o frontend não controla a saúde nem o contrato do backend.
-
-### Tema escuro OLED
-
-Ao selecionar **Escuro OLED** em Configurações, o fundo do aplicativo fica preto puro (`#000000`), com cartões em cinza neutro quase preto. As cinco cores de destaque permanecem independentes do tema e continuam aparecendo nos botões, ícones e seleções.
-
-
-## Atualização Android — navegação, teclado e ícones (outubro/2026)
-
-- O painel lateral nativo utiliza `Modal`, abre por toque no menu e pelos gestos nas bordas. Em um APK, testar o toque no ícone, o arraste da borda esquerda para a direita, o gesto inverso da borda direita e o fechamento por toque fora do painel ou botão Voltar.
-- O compositor permanece na árvore de layout, com ajuste apenas da sobreposição real do teclado. Evita deslocar a interface duas vezes quando o Android já redimensiona a janela. Testar especialmente Gboard, Samsung Keyboard, teclados flutuantes e teclado com altura alterada.
-- A opção **Sistema** é o padrão do tema: acompanha as alterações do tema claro/escuro do Android. Temas manuais permanecem disponíveis em Configurações, assim como as cores de destaque independentes. Preferências anteriores selecionadas manualmente são preservadas.
-- Ícones e tela de abertura usam a arte do Synapse fornecida pela equipe. Foram removidos os símbolos decorativos antigos de estrela. O título de boas-vindas tem animação leve de transparência quando as animações estão habilitadas.
-- A configuração EAS e o identificador Android do ZIP recebido foram mantidos. **Antes de gerar APK, confirme em `npx eas project:info` se o `projectId` é o projeto Expo que você pretende utilizar.**
-
-### Verificações antes de publicar
+Requisitos: Node.js **22.18 ou superior**, npm e acesso a uma Agenda API com autenticação.
+O projeto utiliza npm e mantém as versões resolvidas em `package-lock.json`.
 
 ```bash
 npm ci
-npx expo-doctor
-npx tsc --noEmit
-npm run lint
 ```
 
-Em seguida, gere e instale um novo APK pelo EAS. Teste o menu, a digitação em teclados de diferentes alturas, os modos claro/escuro automáticos, fontes ampliadas e a atualização do ícone na tela inicial. Mudanças em ícones ou na configuração nativa **exigem uma nova compilação**, não apenas atualizar o JavaScript.
+Crie `.env.local` na raiz do frontend para usar o backend executado no mesmo computador:
+
+```dotenv
+EXPO_PUBLIC_API_URL=http://localhost:8080
+```
+
+Informe somente a raiz da API, sem `/auth`, `/login` ou `/api` ao final.
+O arquivo `.env.local` é ignorado pelo Git. Variáveis `EXPO_PUBLIC_*` fazem parte do
+aplicativo distribuído: não coloque senhas, tokens ou outros segredos nelas.
+
+Inicie o Expo e abra o endereço informado no terminal:
+
+```bash
+npm run web -- --port 8082 --clear
+```
+
+No PowerShell, os mesmos comandos funcionam com `npm.cmd` caso a política de execução
+bloqueie `npm.ps1`. Como alternativa ao arquivo, configure o destino no terminal que
+inicia o Expo:
+
+```powershell
+$env:EXPO_PUBLIC_API_URL="http://localhost:8080"
+npm.cmd run web -- --port 8082 --clear
+```
+
+Essa variável vale apenas para aquele terminal e seus processos. Reinicie o Expo com
+`--clear` sempre que alterar o destino da API.
+
+### Backend local
+
+Na pasta do backend autenticado, use **JDK 25** e MongoDB. O perfil `local` permite
+as origens web `localhost` e `127.0.0.1` nas portas 8081 e 8082:
+
+```powershell
+docker compose up -d mongo
+Remove-Item Env:AUTH_CORS_ALLOWED_ORIGINS -ErrorAction SilentlyContinue
+.\gradlew.bat bootRun --args="--spring.profiles.active=local"
+```
+
+No Linux/macOS:
+
+```bash
+docker compose up -d mongo
+env -u AUTH_CORS_ALLOWED_ORIGINS bash gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+Cadastro, login, logout e lembretes manuais do backend funcionam sem o interpretador.
+Para salvar lembretes pelo compositor Synapse, inicie também o microserviço conforme
+seu README e configure `VOX_AI_SERVICE_URL` no backend. O padrão local é
+`http://localhost:8000`.
+
+### Destino da API
+
+| Ambiente | Endereço de referência |
+|---|---|
+| Navegador no computador do backend | `http://localhost:8080` |
+| Emulador Android padrão | `http://10.0.2.2:8080` |
+| Dispositivo físico | API HTTPS alcançável pela rede do dispositivo |
+| Destino publicado padrão | `https://vox-backend-latest.onrender.com` |
+
+Sem `EXPO_PUBLIC_API_URL`, o aplicativo utiliza o destino publicado. Os perfis EAS
+também definem esse endereço explicitamente. Um backend local ativo não modifica a
+instância publicada; ambos precisam disponibilizar os contratos usados pelo aplicativo.
+
+No Android, `localhost` representa o próprio dispositivo. Builds nativos usam HTTPS
+por padrão; testar uma API local em HTTP pode exigir configuração nativa de
+desenvolvimento ou um túnel HTTPS.
+
+## Sessão e comunicação
+
+| Método | Rota | Uso |
+|---|---|---|
+| `POST` | `/users` | Cadastro |
+| `POST` | `/auth/login` | Login e emissão da sessão |
+| `GET` | `/auth/me` | Validação da sessão |
+| `POST` | `/auth/logout` | Revogação da sessão |
+| `GET` | `/api/vox/health` | Disponibilidade HTTP da API |
+| `POST` | `/api/vox/transcriptions` | Criação por texto interpretado |
+
+Chamadas privadas enviam `Authorization: Bearer <token>`. O servidor determina o
+proprietário dos registros. O token fica no **SecureStore** nas plataformas nativas
+e somente **em memória** na web; recarregar a página pode exigir novo login.
+Senhas e tokens não devem ser registrados em logs ou arquivos `.env`.
+
+O health confirma que a rota HTTP responde; não garante que MongoDB e interpretador
+estejam disponíveis. A tela **Lembretes** mostra o endereço ativo e permite repetir
+a verificação da conexão.
+
+## Voz e notificações nativas
+
+O reconhecimento utiliza `expo-speech-recognition`, com idioma `pt-BR`, permissão
+de microfone e o serviço disponível no dispositivo. A digitação permanece disponível
+quando não há um mecanismo de voz compatível.
+
+Voz e notificações nativas precisam de um aplicativo compilado com seus módulos.
+O Expo Go não é suficiente para validar esse fluxo. Para desenvolvimento Android
+local, instale Android Studio/SDK e execute:
+
+```bash
+npx expo run:android
+```
+
+O Expo gera os projetos nativos quando necessário; mantenha configurações e plugins
+em `app.json`, sem editar manualmente diretórios gerados. Para testar em aparelho,
+use uma API alcançável por ele.
+
+## Qualidade e manutenção
+
+```bash
+npm run check
+```
+
+| Comando | Verificação |
+|---|---|
+| `npm run typecheck` | Tipos TypeScript, sem emissão de arquivos |
+| `npm run lint` | Regras de código e hooks React |
+| `npm test` | Testes automatizados de regressão |
+| `npm run check` | Typecheck, lint e testes |
+| `npx expo-doctor` | Compatibilidade de dependências e configuração Expo |
+| `npx expo export --platform web` | Geração do bundle e das rotas web |
+
+Estrutura do código:
+
+```text
+src/
+├── app/          # Rotas e layout do Expo Router
+├── components/   # Interface, navegação e compositor
+├── constants/    # Temas, paletas e opções visuais
+├── context/      # Autenticação, preferências e sessão de lembretes
+├── hooks/        # Comportamentos reutilizáveis
+├── services/     # HTTP, sessão e notificações por plataforma
+└── utils/        # Utilitários e persistência de preferências
+tests/            # Regressões automatizadas
+```
+
+Ao manter o projeto:
+
+- Preserve as diferenças de plataforma em arquivos `.web.ts`/`.web.tsx`.
+- Mantenha chamadas HTTP e regras de sessão nos serviços, fora dos componentes visuais.
+- Adicione regressões ao corrigir falhas de rede, sessão e operações assíncronas.
+- Instale dependências Expo com `npx expo install <pacote>` para respeitar o SDK.
+- Execute as verificações e revise o destino da API antes de gerar um APK.
+
+## Gerar APK com EAS
+
+O perfil `preview` de `eas.json` gera um APK com distribuição interna. A conta e o
+projeto EAS precisam estar acessíveis ao usuário responsável pelo build:
+
+```bash
+npx eas-cli@latest whoami
+npx eas-cli@latest project:info
+npx eas-cli@latest build --platform android --profile preview
+```
+
+Identidade configurada:
+
+| Campo | Valor |
+|---|---|
+| Projeto Expo | `@ssasuru/synapse-build` |
+| Project ID | `fe42f9f9-11d9-406f-b0a8-84da4231e4f1` |
+| Package Android | `com.voxsmartschedule.voxagenda` |
+
+Preserve o Project ID e as credenciais de assinatura para permitir futuras
+atualizações. Mudanças em módulos, plugins, ícones ou configuração nativa exigem
+uma nova compilação.
+
+O workflow `.github/workflows/build-android.yml` oferece geração de APK por push
+na `main` ou execução manual. A autenticação EAS utiliza o secret `EXPO_TOKEN` do
+GitHub; o APK é disponibilizado como artifact por 14 dias.
+
+O workflow `.github/workflows/validate.yml` executa typecheck, lint, testes e exportação
+web nos pushes de `main`/`feature/autenticacao` e em pull requests. O workflow de APK
+também exige `npm run check` antes de iniciar o build EAS.
+
+## Escopo atual
+
+A tela **Lembretes** apresenta o último resultado desta sessão; um histórico unificado,
+edição/exclusão e sincronização completa de notificações dependem de evolução integrada
+com o backend. A interpretação cobre as regras disponíveis no microserviço.
+
+Antes de distribuir uma versão, valide em APK real: login, logout, permissões, voz,
+notificações, teclado, gestos, rotação e acessibilidade. A compatibilidade desejada
+com Android 7.0 ou superior precisa ser confirmada no manifesto final e em dispositivos
+ou emuladores representativos; uma exportação web não comprova essa compatibilidade.

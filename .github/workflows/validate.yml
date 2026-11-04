@@ -1,0 +1,26 @@
+name: Synapse - Validar frontend
+
+on:
+  push:
+    branches: [main, feature/autenticacao]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - name: Exportar web
+        run: npx expo export --platform web
+        env:
+          EXPO_OFFLINE: '1'

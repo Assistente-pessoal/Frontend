@@ -3,7 +3,7 @@
  * remain interactive above Expo Router's screens (including Android release builds).
  * Edge swipes are captured on the main shell, not a transparent view covering it.
  */
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { router, usePathname } from 'expo-router';
 import {
   Animated, Keyboard, Modal, PanResponder, Pressable, ScrollView,
@@ -26,11 +26,11 @@ export function SynapseNativeNavigation({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { settings } = useAppSettings();
+  const { settings, animationsEnabled } = useAppSettings();
   const colors = getAppPalette(settings);
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(false);
-  const progress = useRef(new Animated.Value(0)).current;
+  const [progress] = useState(() => new Animated.Value(0));
   const drawerWidth = Math.min(360, Math.max(240, width - 44));
 
   const closeDrawer = useCallback(() => setOpen(false), []);
@@ -42,7 +42,7 @@ export function SynapseNativeNavigation({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!visible) return;
-    const animation = settings.animationsEnabled
+    const animation = animationsEnabled
       ? Animated.spring(progress, {
           toValue: open ? 1 : 0,
           stiffness: 240,
@@ -55,7 +55,7 @@ export function SynapseNativeNavigation({ children }: { children: ReactNode }) {
       if (finished && !open) setVisible(false);
     });
     return () => animation.stop();
-  }, [open, progress, settings.animationsEnabled, visible]);
+  }, [open, progress, animationsEnabled, visible]);
 
   // Support either direction from the appropriate screen edge. In particular,
   // a leftward swipe starting at the right edge also opens the drawer.
@@ -145,7 +145,7 @@ export function SynapseNativeNavigation({ children }: { children: ReactNode }) {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Fechar menu"
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
               onPress={closeDrawer}
             />
           </Animated.View>
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   shortcutCompact: { minWidth: 48, paddingHorizontal: 9 },
   shortcutText: { fontSize: 12, fontWeight: '800' },
   modalRoot: { flex: 1, justifyContent: 'flex-start' },
-  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.56)' },
+  scrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.56)' },
   drawer: { height: '100%', borderTopRightRadius: 28, borderBottomRightRadius: 28, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 18, elevation: 24, overflow: 'hidden' },
   drawerScroll: { flex: 1, minWidth: 0 },
   drawerContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 12 },
