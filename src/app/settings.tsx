@@ -19,21 +19,12 @@ export default function SettingsScreen() {
   const colors = getAppPalette(settings);
   const { user, signOut } = useAuthSession();
   const [signingOut, setSigningOut] = useState(false);
-  const [signOutError, setSignOutError] = useState<string | null>(null);
 
   async function doSignOut() {
     if (signingOut) return;
     setSigningOut(true);
-    setSignOutError(null);
-    try {
-      await signOut();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Não foi possível confirmar o encerramento da sessão.';
-      setSignOutError(message);
-      if (Platform.OS !== 'web') Alert.alert('Aviso sobre o logout', message);
-    } finally {
-      setSigningOut(false);
-    }
+    // The auth provider keeps logout warnings visible after this screen unmounts.
+    await signOut();
   }
 
   function confirmSignOut() {
@@ -224,7 +215,6 @@ export default function SettingsScreen() {
             onPress={confirmSignOut} style={[styles.resetButton, { borderColor: colors.outline }, signingOut && styles.disabled]}>
             <AppText style={[styles.resetText, { color: colors.text }]}>{signingOut ? 'Saindo…' : 'Sair da conta'}</AppText>
           </Pressable>
-          {signOutError && <AppText accessibilityRole="alert" style={[styles.cardDescription, { color: '#CC545B' }]}>{signOutError}</AppText>}
         </View>
 
         <Pressable accessibilityRole="button" android_ripple={{ color: colors.accentContainer }} onPress={resetSettings} style={[styles.resetButton, { borderColor: colors.outline }]}>

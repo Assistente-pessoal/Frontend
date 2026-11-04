@@ -23,6 +23,7 @@ import {
 } from 'expo-speech-recognition';
 
 import { createVoxReminder, VoxApiHttpError } from '@/services/vox-api';
+import { getAccessToken } from '@/services/auth-token';
 import { scheduleLocalReminder } from '@/services/vox-notifications';
 
 const palette = {
@@ -91,21 +92,21 @@ type FeedbackNoticeProps = {
 };
 
 function FeedbackNotice({ tone, title, message, isDark = false }: FeedbackNoticeProps) {
-  const entrance = useRef(new Animated.Value(0)).current;
-  const { settings } = useAppSettings();
+  const [entrance] = useState(() => new Animated.Value(0));
+  const { animationsEnabled } = useAppSettings();
   const isError = tone === 'error';
 
   useEffect(() => {
     const animation = Animated.parallel([
       Animated.timing(entrance, {
         toValue: 1,
-        duration: settings.animationsEnabled ? 280 : 0,
+        duration: animationsEnabled ? 280 : 0,
         useNativeDriver: Platform.OS !== 'web',
       }),
     ]);
     animation.start();
     return () => animation.stop();
-  }, [entrance, settings.animationsEnabled]);
+  }, [entrance, animationsEnabled]);
 
   return (
     <Animated.View
@@ -137,7 +138,7 @@ function FeedbackNotice({ tone, title, message, isDark = false }: FeedbackNotice
 
 export function ReminderComposer() {
   const { width, height } = useWindowDimensions();
-  const { settings, resolvedTheme } = useAppSettings();
+  const { settings, resolvedTheme, animationsEnabled } = useAppSettings();
   const isDark = resolvedTheme === 'dark';
   const appColors = getAppPalette(settings);
   const isWideLayout = width >= 1100;
@@ -160,28 +161,42 @@ export function ReminderComposer() {
   const inputRef = useRef<TextInput>(null);
   const { focusComposer: focusComposerParam } = useGlobalSearchParams<{ focusComposer?: string }>();
 
-  const [transcript, setTranscript] = useState('');
   const [recognizing, setRecognizing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const requestPending = useRef(false);
+  const mounted = useRef(false);
+  const ownsRecognition = useRef(false);
+  const recognitionRequestPending = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (ownsRecognition.current) {
+        ownsRecognition.current = false;
+        // abort discards the final result, preventing the next account seeing it.
+        try { ExpoSpeechRecognitionModule.abort(); } catch { /* module may be unavailable */ }
+      }
+    };
+  }, []);
   const [errorMessage, setErrorMessage] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
-  const { setLastSaved, reportApiResult } = useReminderSession();
+  const { draftText: transcript, setDraftText: setTranscript, setLastSaved, reportApiResult } = useReminderSession();
 
-  const entrance = useRef(new Animated.Value(0)).current;
-  const micPulse = useRef(new Animated.Value(1)).current;
+  const [entrance] = useState(() => new Animated.Value(0));
+  const [micPulse] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     const animation = Animated.timing(entrance, {
       toValue: 1,
-      duration: settings.animationsEnabled ? 520 : 0,
+      duration: animationsEnabled ? 520 : 0,
       useNativeDriver: Platform.OS !== 'web',
     });
     animation.start();
     return () => animation.stop();
-  }, [entrance, settings.animationsEnabled]);
+  }, [entrance, animationsEnabled]);
 
   useEffect(() => {
-    if (recognizing && settings.animationsEnabled) {
+    if (recognizing && animationsEnabled) {
       const pulse = Animated.loop(
         Animated.sequence([
           Animated.timing(micPulse, { toValue: 1.09, duration: 650, useNativeDriver: Platform.OS !== 'web' }),
@@ -193,7 +208,7 @@ export function ReminderComposer() {
     }
     micPulse.setValue(1);
     return undefined;
-  }, [recognizing, micPulse, settings.animationsEnabled]);
+  }, [recognizing, micPulse, animationsEnabled]);
 
   useEffect(() => {
     if (!focusComposerParam) return;
@@ -202,12 +217,15 @@ export function ReminderComposer() {
   }, [focusComposerParam]);
 
   useSpeechRecognitionEvent('start', () => {
+    if (!mounted.current || !ownsRecognition.current) return;
     setRecognizing(true);
     setErrorMessage('');
     setInfoMessage('Estou ouvindo. Fale seu lembrete naturalmente.');
   });
 
   useSpeechRecognitionEvent('end', () => {
+    if (!mounted.current || !ownsRecognition.current) return;
+    ownsRecognition.current = false;
     setRecognizing(false);
     setInfoMessage((current) =>
       current.startsWith('Estou ouvindo') ? 'Transcrição finalizada. Revise o texto antes de salvar.' : current,
@@ -215,11 +233,14 @@ export function ReminderComposer() {
   });
 
   useSpeechRecognitionEvent('result', (event) => {
+    if (!mounted.current || !ownsRecognition.current) return;
     const resultText = event.results.map((result) => result.transcript).join(' ').trim();
     if (resultText) setTranscript(resultText);
   });
 
   useSpeechRecognitionEvent('error', (event) => {
+    if (!mounted.current || !ownsRecognition.current) return;
+    ownsRecognition.current = false;
     setRecognizing(false);
     setErrorMessage(getSpeechErrorMessage(event.error, event.message));
     setInfoMessage('Você também pode digitar ou corrigir a transcrição manualmente.');
@@ -229,20 +250,21 @@ export function ReminderComposer() {
     setErrorMessage('');
     setInfoMessage('');
 
-    if (recognizing) {
-      ExpoSpeechRecognitionModule.stop();
-      return;
-    }
-
-    if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
-      setErrorMessage(
-        getRecognitionUnavailableMessage(),
-      );
-      return;
-    }
-
+    const token = getAccessToken();
+    const isCurrent = () => mounted.current && !!token && getAccessToken() === token;
+    if (recognitionRequestPending.current) return;
+    recognitionRequestPending.current = true;
     try {
+      if (recognizing) {
+        ExpoSpeechRecognitionModule.stop();
+        return;
+      }
+      if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+        setErrorMessage(getRecognitionUnavailableMessage());
+        return;
+      }
       const permission = await ExpoSpeechRecognitionModule.requestMicrophonePermissionsAsync();
+      if (!isCurrent()) return;
       if (!permission.granted) {
         setErrorMessage(
           'A permissão de microfone foi negada. Ative-a nas configurações do aplicativo para usar a transcrição por voz.',
@@ -291,18 +313,24 @@ export function ReminderComposer() {
           : {}),
         addsPunctuation: Platform.OS === 'ios' && ExpoSpeechRecognitionModule.supportsOnDeviceRecognition(),
       };
+      ownsRecognition.current = true;
       ExpoSpeechRecognitionModule.start(startOptions);
     } catch (error) {
+      ownsRecognition.current = false;
+      if (!isCurrent()) return;
       setRecognizing(false);
       setErrorMessage(
         error instanceof Error
           ? `Não foi possível iniciar o microfone: ${error.message}`
           : 'Não foi possível iniciar o microfone. Digite o lembrete manualmente.',
       );
+    } finally {
+      recognitionRequestPending.current = false;
     }
   }
 
   async function handleSaveReminder() {
+    if (requestPending.current) return;
     const text = transcript.trim();
     if (!text) {
       setErrorMessage('Fale ou digite o que você precisa lembrar antes de salvar.');
@@ -313,17 +341,23 @@ export function ReminderComposer() {
       return;
     }
 
+    const token = getAccessToken();
+    const sessionIsCurrent = () => !!token && getAccessToken() === token;
+    const isCurrent = () => mounted.current && sessionIsCurrent();
+    requestPending.current = true;
     setSubmitting(true);
     setErrorMessage('');
     setInfoMessage('Enviando o texto para a agenda-api interpretar…');
 
     try {
       const reminder = await createVoxReminder(text);
+      if (!sessionIsCurrent()) return;
       reportApiResult('online', 'Agenda API conectada e respondendo.');
       setLastSaved(reminder);
 
       try {
-        const notificationResult = await scheduleLocalReminder(reminder);
+        const notificationResult = await scheduleLocalReminder(reminder, sessionIsCurrent);
+        if (!isCurrent()) return;
         switch (notificationResult) {
           case 'scheduled':
             setInfoMessage('Lembrete salvo e notificação local agendada no dispositivo.');
@@ -350,6 +384,7 @@ export function ReminderComposer() {
             break;
         }
       } catch (notificationError) {
+        if (!isCurrent()) return;
         setInfoMessage(
           notificationError instanceof Error
             ? `Lembrete salvo, mas não consegui agendar a notificação: ${notificationError.message}`
@@ -357,6 +392,7 @@ export function ReminderComposer() {
         );
       }
     } catch (error) {
+      if (!isCurrent()) return;
       reportApiResult(error instanceof VoxApiHttpError ? 'online' : 'offline', error instanceof Error ? error.message : 'Falha ao acessar a Agenda API.');
       setErrorMessage(
         error instanceof Error
@@ -365,7 +401,8 @@ export function ReminderComposer() {
       );
       setInfoMessage('O texto continua no campo para você corrigir ou tentar enviar novamente.');
     } finally {
-      setSubmitting(false);
+      requestPending.current = false;
+      if (isCurrent()) setSubmitting(false);
     }
   }
 

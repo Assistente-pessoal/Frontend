@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Keyboard, Platform, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Animated, Keyboard, Platform, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText as Text } from '@/components/app-text';
@@ -8,10 +8,10 @@ import { getAppPalette } from '@/constants/app-palette';
 
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
-  const { settings } = useAppSettings();
+  const { settings, animationsEnabled } = useAppSettings();
   const colors = getAppPalette(settings);
-  const entrance = useRef(new Animated.Value(0)).current;
-  const breathe = useRef(new Animated.Value(1)).current;
+  const [entrance] = useState(() => new Animated.Value(0));
+  const [breathe] = useState(() => new Animated.Value(1));
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
@@ -24,25 +24,25 @@ export default function HomeScreen() {
     entrance.setValue(0);
     const animation = Animated.timing(entrance, {
       toValue: 1,
-      duration: settings.animationsEnabled ? 300 : 0,
+      duration: animationsEnabled ? 300 : 0,
       useNativeDriver: Platform.OS !== 'web',
     });
     animation.start();
     return () => animation.stop();
-  }, [entrance, settings.animationsEnabled]));
+  }, [entrance, animationsEnabled]));
 
   useEffect(() => {
-    if (!settings.animationsEnabled || keyboardVisible) {
+    if (!animationsEnabled || keyboardVisible) {
       breathe.setValue(1);
       return;
     }
     const animation = Animated.loop(Animated.sequence([
-      Animated.timing(breathe, { toValue: 0.76, duration: 2400, useNativeDriver: true }),
-      Animated.timing(breathe, { toValue: 1, duration: 2400, useNativeDriver: true }),
+      Animated.timing(breathe, { toValue: 0.76, duration: 2400, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(breathe, { toValue: 1, duration: 2400, useNativeDriver: Platform.OS !== 'web' }),
     ]));
     animation.start();
     return () => animation.stop();
-  }, [breathe, keyboardVisible, settings.animationsEnabled]);
+  }, [breathe, keyboardVisible, animationsEnabled]);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['left', 'right']}>

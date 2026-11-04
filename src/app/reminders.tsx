@@ -1,5 +1,5 @@
 import { ActivityIndicator, Animated, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,10 +17,10 @@ function formatDateTime(date: string | null, time: string | null) {
 
 export default function RemindersScreen() {
   const { width } = useWindowDimensions();
-  const { settings } = useAppSettings();
+  const { settings, animationsEnabled } = useAppSettings();
   const colors = getAppPalette(settings);
   const { lastSaved, apiChecking, apiStatus, apiStatusMessage, checkConnection } = useReminderSession();
-  const entrance = useRef(new Animated.Value(0)).current;
+  const [entrance] = useState(() => new Animated.Value(0));
   const scrollRef = useRef<ScrollView>(null);
   useFocusEffect(useCallback(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -32,10 +32,10 @@ export default function RemindersScreen() {
       mass: 0.85,
       useNativeDriver: Platform.OS !== 'web',
     });
-    if (settings.animationsEnabled) animation.start();
+    if (animationsEnabled) animation.start();
     else entrance.setValue(1);
     return () => animation.stop();
-  }, [entrance, settings.animationsEnabled]));
+  }, [entrance, animationsEnabled]));
   const isWide = width >= 720;
   const isCompact = width < 380;
   const statusColor = apiStatus === 'online' ? '#2E9871' : apiStatus === 'offline' ? '#C6535D' : colors.muted;

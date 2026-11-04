@@ -1,5 +1,7 @@
-import { Platform } from 'react-native';
+import { API_BASE_URL, API_TIMEOUT_MS, connectionHint } from './api-config';
 import { expireSessionIfCurrent, getAccessToken } from './auth-token';
+import { HttpTransportError, requestJson } from './http-client';
+import { apiErrorMessage } from '@/utils/api-errors';
 
 export type VoxInterpretation = {
   id: string;
@@ -12,22 +14,8 @@ export type VoxInterpretation = {
   message?: string;
 };
 
-const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
-const configuredUrlIsAndroidEmulatorAlias = /^https?:\/\/10\.0\.2\.2(?::|\/|$)/i.test(configuredApiUrl || '');
-// Use o mesmo endpoint publicado configurado originalmente no eas.json.
-// EXPO_PUBLIC_API_URL continua disponível para sobrescrever o destino em desenvolvimento local.
-const DEFAULT_VOX_API_URL = 'https://vox-backend-latest.onrender.com';
-const platformConfiguredUrl =
-  Platform.OS !== 'android' && configuredUrlIsAndroidEmulatorAlias ? undefined : configuredApiUrl;
-
-/**
- * Por padrão, o app se conecta à Agenda API publicada, sem exigir um .env.
- * Para testar um backend local, defina EXPO_PUBLIC_API_URL no arquivo .env.
- */
-export const VOX_API_BASE_URL = (platformConfiguredUrl || DEFAULT_VOX_API_URL).replace(/\/+$/, '');
-
-// Render pode demorar a retomar a instância em repouso; não classificar como offline após 20 s.
-const API_TIMEOUT_MS = 75_000;
+// Mantém o nome público utilizado pelas telas; a configuração é compartilhada com auth.
+export const VOX_API_BASE_URL = API_BASE_URL;
 
 /** HTTP veio do servidor: a conexão existe, embora a operação possa ter falhado. */
 export class VoxApiHttpError extends Error {
@@ -37,86 +25,43 @@ export class VoxApiHttpError extends Error {
   }
 }
 
-type ApiPayload = Record<string, unknown> | string | null;
-
-async function readPayload(response: Response): Promise<ApiPayload> {
-  const rawBody = await response.text();
-  if (!rawBody) return null;
-
-  try {
-    const parsed: unknown = JSON.parse(rawBody);
-    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
-  } catch {
-    return rawBody;
-  }
-}
-
-function payloadMessage(payload: ApiPayload): string | undefined {
-  if (typeof payload === 'string') return payload.slice(0, 500);
-  if (!payload || typeof payload !== 'object') return undefined;
-
-  for (const key of ['message', 'detail', 'error', 'title']) {
-    const value = payload[key];
-    if (typeof value === 'string' && value.trim()) return value.trim();
-  }
-  return undefined;
-}
-
-function httpErrorMessage(status: number, payload: ApiPayload): string {
-  const serverMessage = payloadMessage(payload);
+function httpErrorMessage(status: number, payload: unknown, path: string): string {
+  let fallback = `A Agenda API respondeu com HTTP ${status}.`;
   if (status === 401 || status === 403) {
-    return serverMessage || 'A API recusou a requisição (401/403). Confira a configuração de segurança do backend.';
+    fallback = 'A API recusou a requisição. Entre novamente ou confira as permissões da conta.';
+  } else if (status === 404) {
+    fallback = path === '/api/vox/health'
+      ? 'A verificação de conexão não está disponível neste servidor. Confira o endereço da API.'
+      : 'O serviço de lembretes não está disponível neste servidor. Confira o endereço da API.';
+  } else if (status === 502 || status === 503 || status === 504) {
+    fallback = 'A API respondeu, mas um serviço necessário está indisponível. Tente novamente mais tarde.';
   }
-  if (status === 404) {
-    return serverMessage || 'A rota /api/vox/transcriptions não foi encontrada. Confira se a versão publicada da Agenda API contém o endpoint VOX.';
-  }
-  if (status === 502 || status === 503 || status === 504) {
-    return serverMessage || 'A API respondeu, mas o serviço de interpretação pode estar indisponível. Tente novamente ou verifique os logs do backend.';
-  }
-  return serverMessage || `A agenda-api respondeu com HTTP ${status}.`;
+  return apiErrorMessage(payload, fallback);
 }
 
-async function requestApi(path: string, init: RequestInit = {}): Promise<{ response: Response; payload: ApiPayload }> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
-
+async function requestApi(path: string, init: RequestInit = {}): Promise<{ response: Response; payload: unknown }> {
   try {
-    const response = await fetch(`${VOX_API_BASE_URL}${path}`, {
-      ...init,
-      signal: controller.signal,
-    });
-    const payload = await readPayload(response);
-    return { response, payload };
+    return await requestJson(`${API_BASE_URL}${path}`, init, { timeoutMs: API_TIMEOUT_MS });
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`A agenda-api não respondeu em ${API_TIMEOUT_MS / 1000} segundos (${VOX_API_BASE_URL}).`);
+    if (error instanceof HttpTransportError && error.kind === 'timeout') {
+      throw new Error(`A Agenda API não respondeu em 75 segundos (${API_BASE_URL}).`);
     }
-
-    const environmentHint = VOX_API_BASE_URL.startsWith('https://')
-      ? 'Confira sua conexão com a internet, a disponibilidade do serviço hospedado e a política CORS do backend.'
-      : Platform.OS === 'android'
-        ? 'No emulador Android use http://10.0.2.2:8080; em celular físico use o IPv4 do computador.'
-        : 'No navegador do mesmo computador, use http://localhost:8080 no arquivo .env.';
-
-    throw new Error(
-      `Não foi possível alcançar a Agenda API em ${VOX_API_BASE_URL}. ${environmentHint} Detalhe: ${detail}`,
-    );
-  } finally {
-    clearTimeout(timeout);
+    if (error instanceof HttpTransportError && error.kind === 'cancelled') throw error;
+    throw new Error(`Não foi possível conectar à Agenda API (${API_BASE_URL}). ${connectionHint()}`);
   }
 }
 
-export async function checkVoxApiHealth(): Promise<void> {
+export async function checkVoxApiHealth(options: { signal?: AbortSignal } = {}): Promise<void> {
   const { response, payload } = await requestApi('/api/vox/health', {
     method: 'GET',
     headers: { Accept: 'application/json' },
+    signal: options.signal,
   });
 
-  if (!response.ok) throw new VoxApiHttpError(response.status, httpErrorMessage(response.status, payload));
+  if (!response.ok) throw new VoxApiHttpError(response.status, httpErrorMessage(response.status, payload, '/api/vox/health'));
 }
 
-export async function createVoxReminder(text: string): Promise<VoxInterpretation> {
+export async function createVoxReminder(text: string, options: { signal?: AbortSignal } = {}): Promise<VoxInterpretation> {
   const cleanText = text.trim();
   if (!cleanText) throw new Error('Digite ou transcreva um lembrete antes de enviar.');
   if (cleanText.length > 2000) throw new Error('O lembrete deve ter no máximo 2.000 caracteres.');
@@ -133,33 +78,35 @@ export async function createVoxReminder(text: string): Promise<VoxInterpretation
     },
     // Only the reviewed text is sent; audio remains on the device.
     body: JSON.stringify({ text: cleanText }),
+    signal: options.signal,
   });
 
   if (response.status === 401) {
     expireSessionIfCurrent(token);
     throw new VoxApiHttpError(401, 'Sua sessão expirou. Entre novamente.');
   }
-  if (!response.ok) throw new VoxApiHttpError(response.status, httpErrorMessage(response.status, payload));
+  if (!response.ok) throw new VoxApiHttpError(response.status, httpErrorMessage(response.status, payload, '/api/vox/transcriptions'));
 
   if (
-    !payload ||
-    typeof payload !== 'object' ||
-    typeof payload.id !== 'string' ||
-    typeof payload.title !== 'string'
+    !payload || typeof payload !== 'object' || Array.isArray(payload) ||
+    !('id' in payload) || typeof payload.id !== 'string' || !payload.id ||
+    !('title' in payload) || typeof payload.title !== 'string' || !payload.title.trim()
   ) {
     throw new Error(
       'A agenda-api respondeu, mas o formato recebido é inválido. Confira se o backend e o frontend usam a mesma versão do contrato do Synapse.',
     );
   }
 
+  const fields = payload as Record<string, unknown>;
+
   return {
     id: payload.id,
-    text: typeof payload.text === 'string' ? payload.text : cleanText,
+    text: typeof fields.text === 'string' ? fields.text : cleanText,
     title: payload.title,
-    date: typeof payload.date === 'string' ? payload.date : null,
-    time: typeof payload.time === 'string' ? payload.time : null,
-    domain: typeof payload.domain === 'string' ? payload.domain : 'pessoal',
-    priority: typeof payload.priority === 'string' ? payload.priority : 'média',
-    message: typeof payload.message === 'string' ? payload.message : undefined,
+    date: typeof fields.date === 'string' ? fields.date : null,
+    time: typeof fields.time === 'string' ? fields.time : null,
+    domain: typeof fields.domain === 'string' && fields.domain.trim() ? fields.domain : 'pessoal',
+    priority: typeof fields.priority === 'string' && fields.priority.trim() ? fields.priority : 'média',
+    message: typeof fields.message === 'string' ? fields.message : undefined,
   };
 }

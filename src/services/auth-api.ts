@@ -1,6 +1,7 @@
-import { VOX_API_BASE_URL } from './vox-api';
-import { Platform } from 'react-native';
+import { API_BASE_URL, API_TIMEOUT_MS, connectionHint } from './api-config';
 import { expireSessionIfCurrent } from './auth-token';
+import { HttpTransportError, requestJson } from './http-client';
+import { apiErrorMessage } from '@/utils/api-errors';
 
 export type SynapseUser = { id: string; name: string; email: string };
 export type AuthLoginResponse = {
@@ -18,40 +19,23 @@ export class AuthApiError extends Error {
 }
 
 async function authRequest(path: string, init: RequestInit): Promise<unknown> {
-  const abortController = new AbortController();
-  const timer = setTimeout(() => abortController.abort(), 75_000);
   let response: Response;
+  let body: unknown;
   try {
-    response = await fetch(`${VOX_API_BASE_URL}${path}`, {
-      ...init,
-      signal: abortController.signal,
-      headers: { Accept: 'application/json', ...init.headers },
-    });
+    ({ response, payload: body } = await requestJson(`${API_BASE_URL}${path}`, init, { timeoutMs: API_TIMEOUT_MS }));
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`A Agenda API demorou mais de 75 segundos para responder (${VOX_API_BASE_URL}).`);
+    if (error instanceof HttpTransportError && error.kind === 'timeout') {
+      throw new Error(`A Agenda API demorou mais de 75 segundos para responder (${API_BASE_URL}).`);
     }
-    const hint = VOX_API_BASE_URL.startsWith('https://')
-      ? 'Verifique se o backend com autenticação está publicado e se o serviço está disponível.'
-      : Platform.OS === 'web'
-        ? 'Confirme a porta do Spring Boot e a configuração de CORS do backend.'
-        : 'Em um celular físico, localhost aponta para o próprio celular; use uma API HTTPS acessível pela rede.';
-    throw new Error(`Não foi possível conectar à Agenda API (${VOX_API_BASE_URL}). ${hint}`);
-  } finally {
-    clearTimeout(timer);
+    if (error instanceof HttpTransportError && error.kind === 'cancelled') throw error;
+    throw new Error(`Não foi possível conectar à Agenda API (${API_BASE_URL}). ${connectionHint()}`);
   }
-  const raw = await response.text();
-  let body: unknown = null;
-  try { body = raw ? JSON.parse(raw) as unknown : null; } catch { body = null; }
   if (!response.ok) {
-    const payloadMessage = body && typeof body === 'object'
-      ? (body as { message?: unknown; error?: unknown }).message ?? (body as { error?: unknown }).error
-      : null;
     const fallback = response.status === 401 ? 'E-mail ou senha inválidos, ou sessão expirada.'
       : response.status === 409 ? 'Este e-mail já foi cadastrado.'
-        : response.status === 404 ? 'Servidor sem as rotas de autenticação. Atualize o backend antes de usar esta versão.'
+        : response.status === 404 ? 'O serviço de autenticação não está disponível neste servidor. Verifique o endereço da API.'
           : `Não foi possível concluir a solicitação (HTTP ${response.status}).`;
-    throw new AuthApiError(response.status, typeof payloadMessage === 'string' && payloadMessage.length < 250 ? payloadMessage : fallback);
+    throw new AuthApiError(response.status, apiErrorMessage(body, fallback));
   }
   return body;
 }

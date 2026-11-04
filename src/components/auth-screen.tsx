@@ -1,7 +1,6 @@
 import { Image } from 'expo-image';
 import { useEffect, useRef, useState } from 'react';
 import {
-  AccessibilityInfo,
   ActivityIndicator,
   Animated,
   KeyboardAvoidingView,
@@ -32,7 +31,7 @@ function passwordBytes(value: string): number {
 
 export function AuthScreen() {
   const { width } = useWindowDimensions();
-  const { settings } = useAppSettings();
+  const { settings, animationsEnabled: motionEnabled } = useAppSettings();
   const palette = getAppPalette(settings);
   const { signIn, signUp, startupMessage } = useAuthSession();
   const [mode, setMode] = useState<Mode>('login');
@@ -44,35 +43,14 @@ export function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focused, setFocused] = useState<Field>(null);
-  const [reduceMotion, setReduceMotion] = useState(false);
   const switching = useRef(false);
-  const introOpacity = useRef(new Animated.Value(0)).current;
-  const introY = useRef(new Animated.Value(18)).current;
-  const logoScale = useRef(new Animated.Value(1)).current;
-  const modeOpacity = useRef(new Animated.Value(1)).current;
-  const modeY = useRef(new Animated.Value(0)).current;
-  const buttonScale = useRef(new Animated.Value(1)).current;
+  const [introOpacity] = useState(() => new Animated.Value(0));
+  const [introY] = useState(() => new Animated.Value(18));
+  const [logoScale] = useState(() => new Animated.Value(1));
+  const [modeOpacity] = useState(() => new Animated.Value(1));
+  const [modeY] = useState(() => new Animated.Value(0));
+  const [buttonScale] = useState(() => new Animated.Value(1));
   const isRegister = mode === 'register';
-  const motionEnabled = settings.animationsEnabled && !reduceMotion;
-
-  useEffect(() => {
-    // Na web, respeitar a preferência do navegador sem depender de APIs nativas.
-    if (Platform.OS === 'web') {
-      if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
-      const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-      const onChange = () => setReduceMotion(mediaQuery.matches);
-      onChange();
-      mediaQuery.addEventListener?.('change', onChange);
-      return () => mediaQuery.removeEventListener?.('change', onChange);
-    }
-    let mounted = true;
-    void AccessibilityInfo.isReduceMotionEnabled()
-      .then((enabled) => { if (mounted) setReduceMotion(enabled); })
-      .catch(() => undefined);
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    return () => { mounted = false; subscription.remove(); };
-  }, []);
-
   // Entrada suave da tela; nenhuma animação quando o usuário optou por reduzir movimentos.
   useEffect(() => {
     introOpacity.stopAnimation();
@@ -101,6 +79,19 @@ export function AuthScreen() {
     animation.start();
     return () => { animation.stop(); logoScale.setValue(1); };
   }, [motionEnabled, logoScale]);
+
+  useEffect(() => {
+    if (!motionEnabled) {
+      modeOpacity.stopAnimation();
+      modeY.stopAnimation();
+      buttonScale.stopAnimation();
+      modeOpacity.setValue(1);
+      modeY.setValue(0);
+      buttonScale.setValue(1);
+      switching.current = false;
+    }
+    return () => { modeOpacity.stopAnimation(); modeY.stopAnimation(); buttonScale.stopAnimation(); };
+  }, [motionEnabled, modeOpacity, modeY, buttonScale]);
 
   function changeMode(next: Mode) {
     if (busy || switching.current || next === mode) return;
@@ -139,7 +130,7 @@ export function AuthScreen() {
   }
 
   async function submit() {
-    if (busy) return;
+    if (busy || switching.current) return;
     setError(null);
     const address = email.trim();
     if (!/^\S+@\S+\.\S+$/.test(address) || address.length > 254) {

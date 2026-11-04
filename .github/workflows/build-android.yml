@@ -29,6 +29,9 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      - name: Validar tipos, lint e testes
+        run: npm run check
+
       - name: Validar projeto Expo
         run: npx expo-doctor
 

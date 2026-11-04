@@ -1,7 +1,7 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { Platform } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
 import { useEffect } from 'react';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
@@ -11,7 +11,6 @@ import { getAppPalette } from '@/constants/app-palette';
 import { ReminderSessionProvider } from '@/context/reminder-session';
 import { AuthSessionProvider, useAuthSession } from '@/context/auth-session';
 import { AuthScreen } from '@/components/auth-screen';
-import { ActivityIndicator, View } from 'react-native';
 
 SplashScreen.preventAutoHideAsync();
 

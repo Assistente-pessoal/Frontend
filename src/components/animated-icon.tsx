@@ -6,10 +6,10 @@ import { Animated, Platform, StyleSheet, View } from 'react-native';
 import { useAppSettings } from '@/context/app-settings';
 
 export function AnimatedSplashOverlay() {
-  const { settings } = useAppSettings();
+  const { animationsEnabled } = useAppSettings();
   const [visible, setVisible] = useState(true);
   const started = useRef(false);
-  const fade = useRef(new Animated.Value(1)).current;
+  const [fade] = useState(() => new Animated.Value(1));
 
   const reveal = useCallback(() => {
     if (started.current) return;
@@ -17,11 +17,11 @@ export function AnimatedSplashOverlay() {
     void SplashScreen.hideAsync().finally(() => {
       Animated.timing(fade, {
         toValue: 0,
-        duration: settings.animationsEnabled ? 320 : 0,
+        duration: animationsEnabled ? 320 : 0,
         useNativeDriver: Platform.OS !== 'web',
       }).start(() => setVisible(false));
     });
-  }, [fade, settings.animationsEnabled]);
+  }, [fade, animationsEnabled]);
 
   if (!visible) return null;
   return (
@@ -40,7 +40,7 @@ export function AnimatedIcon() {
 }
 
 const styles = StyleSheet.create({
-  splashOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: '#1E1E1E', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+  splashOverlay: { ...StyleSheet.absoluteFill, backgroundColor: '#1E1E1E', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   splashLogo: { width: 160, height: 160, borderRadius: 32 },
   iconContainer: { width: 128, height: 128, alignItems: 'center', justifyContent: 'center' },
   iconImage: { width: 120, height: 120, borderRadius: 24 },

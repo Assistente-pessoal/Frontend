@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { router, usePathname } from 'expo-router';
 import type { TabListProps, TabTriggerSlotProps } from 'expo-router/ui';
 import { Animated, PanResponder, Pressable, Platform, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
@@ -45,9 +45,9 @@ export function VoxMenuList({ children, ...props }: TabListProps) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isRemindersPage = pathname === '/reminders';
-  const progress = useRef(new Animated.Value(0)).current;
+  const [progress] = useState(() => new Animated.Value(0));
   const closeMenu = useCallback(() => setOpen(false), []);
-  const { settings } = useAppSettings();
+  const { settings, animationsEnabled } = useAppSettings();
   const palette = getAppPalette(settings);
   const colors = {
     ink: palette.text, muted: palette.muted, line: palette.outline, surface: palette.surface,
@@ -56,7 +56,7 @@ export function VoxMenuList({ children, ...props }: TabListProps) {
   };
 
   useEffect(() => {
-    const animation = settings.animationsEnabled
+    const animation = animationsEnabled
       ? Animated.spring(progress, {
           toValue: open ? 1 : 0,
           damping: 25,
@@ -67,7 +67,7 @@ export function VoxMenuList({ children, ...props }: TabListProps) {
       : Animated.timing(progress, { toValue: open ? 1 : 0, duration: 0, useNativeDriver: Platform.OS !== 'web' });
     animation.start();
     return () => animation.stop();
-  }, [open, progress, settings.animationsEnabled]);
+  }, [open, progress, animationsEnabled]);
 
   const edgeSwipeResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => false,
@@ -175,7 +175,7 @@ export function VoxMenuList({ children, ...props }: TabListProps) {
 }
 
 const styles = StyleSheet.create({
-  navigationLayer: { ...StyleSheet.absoluteFillObject, zIndex: 100, elevation: 100 },
+  navigationLayer: { ...StyleSheet.absoluteFill, zIndex: 100, elevation: 100 },
   edgeSwipeTarget: { position: 'absolute', top: 0, bottom: 0, left: 0, width: 24, zIndex: 99 },
   topBar: { position: 'absolute', left: 0, right: 0, zIndex: 102, flexDirection: 'row', alignItems: 'center', gap: 10, height: 52, minWidth: 0, width: '100%', overflow: 'hidden' },
   menuButton: { flexShrink: 0, width: 48, height: 48, borderRadius: 17, borderWidth: 1, alignItems: 'center', justifyContent: 'center', shadowColor: '#000000', shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 3, overflow: 'hidden' },
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   menuBrandSubtitle: { fontSize: 8, lineHeight: 10, fontWeight: '800', letterSpacing: 1.05 },
   remindersShortcut: { flexShrink: 0, height: 46, minWidth: 94, paddingHorizontal: 12, borderRadius: 18, borderWidth: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   remindersShortcutText: { fontSize: 12, fontWeight: '800' },
-  backdrop: { ...StyleSheet.absoluteFillObject, zIndex: 100, backgroundColor: 'rgba(0, 0, 0, 0.65)' },
+  backdrop: { ...StyleSheet.absoluteFill, zIndex: 100, backgroundColor: 'rgba(0, 0, 0, 0.65)' },
   drawer: { position: 'absolute', top: 0, left: 0, bottom: 0, zIndex: 101, width: '88%', maxWidth: 380, paddingTop: Platform.OS === 'android' ? 46 : 28, paddingHorizontal: 20, paddingBottom: 24, borderTopRightRadius: 30, borderBottomRightRadius: 30, shadowColor: '#000000', shadowOpacity: 0.2, shadowRadius: 24, shadowOffset: { width: 8, height: 0 }, elevation: 18, overflow: 'hidden' },
   drawerScrollContent: { flexGrow: 1, minWidth: 0, paddingBottom: 8 },
   drawerHeader: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 25 },
