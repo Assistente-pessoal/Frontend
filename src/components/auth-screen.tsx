@@ -14,9 +14,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/app-text';
+import { GoogleSignInButton } from '@/components/google-sign-in-button';
 import { getAppPalette } from '@/constants/app-palette';
 import { useAppSettings } from '@/context/app-settings';
 import { useAuthSession } from '@/context/auth-session';
+import { GOOGLE_SIGN_IN_AVAILABLE } from '@/services/google-auth';
 
 type Mode = 'login' | 'register';
 type Field = 'name' | 'email' | 'password' | 'confirm' | null;
@@ -33,7 +35,7 @@ export function AuthScreen() {
   const { width } = useWindowDimensions();
   const { settings, animationsEnabled: motionEnabled } = useAppSettings();
   const palette = getAppPalette(settings);
-  const { signIn, signUp, startupMessage } = useAuthSession();
+  const { signIn, signInWithGoogle, signUp, startupMessage } = useAuthSession();
   const [mode, setMode] = useState<Mode>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -51,7 +53,6 @@ export function AuthScreen() {
   const [modeY] = useState(() => new Animated.Value(0));
   const [buttonScale] = useState(() => new Animated.Value(1));
   const isRegister = mode === 'register';
-  // Entrada suave da tela; nenhuma animação quando o usuário optou por reduzir movimentos.
   useEffect(() => {
     introOpacity.stopAnimation();
     introY.stopAnimation();
@@ -68,8 +69,6 @@ export function AuthScreen() {
     ]).start();
     return () => { introOpacity.stopAnimation(); introY.stopAnimation(); };
   }, [motionEnabled, introOpacity, introY]);
-
-  // Movimento de marca discreto e interrompido ao sair da tela.
   useEffect(() => {
     if (!motionEnabled) { logoScale.setValue(1); return; }
     const animation = Animated.loop(Animated.sequence([
@@ -152,6 +151,19 @@ export function AuthScreen() {
       setConfirm('');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível continuar. Tente novamente.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitGoogle() {
+    if (busy || switching.current) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await signInWithGoogle();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível entrar com o Google. Tente novamente.');
     } finally {
       setBusy(false);
     }
@@ -266,6 +278,17 @@ export function AuthScreen() {
                   </Pressable>
                 </Animated.View>
               </Animated.View>
+
+              {GOOGLE_SIGN_IN_AVAILABLE && (
+                <View style={styles.googleBlock}>
+                  <View style={styles.dividerRow}>
+                    <View style={[styles.dividerLine, { backgroundColor: palette.outline }]} />
+                    <AppText style={[styles.dividerText, { color: palette.muted }]}>ou</AppText>
+                    <View style={[styles.dividerLine, { backgroundColor: palette.outline }]} />
+                  </View>
+                  <GoogleSignInButton disabled={busy} onPress={() => { void submitGoogle(); }} />
+                </View>
+              )}
               <AppText style={[styles.helper, { color: palette.muted }]}>Seus lembretes ficam associados à sua conta.</AppText>
             </View>
           </Animated.View>
@@ -302,6 +325,10 @@ const styles = StyleSheet.create({
   submitText: { fontSize: 14, fontWeight: '900' },
   feedbackBox: { padding: 11, borderRadius: 12 },
   feedback: { fontSize: 11, lineHeight: 17 },
+  googleBlock: { gap: 14 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
+  dividerText: { fontSize: 11, fontWeight: '700' },
   helper: { fontSize: 10, lineHeight: 16, textAlign: 'center' },
   disabled: { opacity: 0.65 },
 });

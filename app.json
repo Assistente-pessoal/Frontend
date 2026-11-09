@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "Synapse",
-    "slug": "synapse-build",
-    "owner": "ssasuru",
+    "slug": "synapse",
+    "owner": "devzevitor",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
@@ -61,6 +61,12 @@
           "color": "#245B46",
           "defaultChannel": "vox-reminders"
         }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.SEU_IOS_CLIENT_ID"
+        }
       ]
     ],
     "experiments": {
@@ -70,7 +76,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "fe42f9f9-11d9-406f-b0a8-84da4231e4f1"
+        "projectId": "858e4fa3-6c91-4170-997b-202bc4a3021e"
       }
     }
   }
