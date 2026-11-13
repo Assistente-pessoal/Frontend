@@ -1,7 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { PropsWithChildren } from 'react';
-import { currentUserOnApi, loginOnApi, logoutOnApi, registerOnApi, type SynapseUser } from '@/services/auth-api';
+import {
+  currentUserOnApi,
+  loginOnApi,
+  loginWithGoogleOnApi,
+  logoutOnApi,
+  registerOnApi,
+  type AuthLoginResponse,
+  type SynapseUser,
+} from '@/services/auth-api';
 import { clearAccessToken, getAccessToken, restoreAccessToken, saveAccessToken, subscribeSessionExpired } from '@/services/auth-token';
+import { requestGoogleIdToken, signOutFromGoogle } from '@/services/google-auth';
 import { clearScheduledReminders } from '@/services/vox-notifications';
 
 type AuthContextValue = {
@@ -9,6 +18,7 @@ type AuthContextValue = {
   initializing: boolean;
   startupMessage: string | null;
   signIn(email: string, password: string): Promise<void>;
+  signInWithGoogle(): Promise<boolean>;
   signUp(name: string, email: string, password: string): Promise<void>;
   signOut(): Promise<void>;
 };
@@ -22,7 +32,6 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
   const cleanup = useRef<Promise<string | null>>(Promise.resolve(null));
 
   const clearLocalSession = useCallback((storageCleanup = clearAccessToken()) => {
-    // Queue cleanup before showing login so a new account cannot race native work.
     const pending = Promise.allSettled([storageCleanup, clearScheduledReminders()]).then((results) => {
       const warnings: string[] = [];
       if (results[0].status === 'rejected') warnings.push('Não foi possível excluir o token armazenado no aparelho.');
@@ -72,24 +81,41 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
     return () => { active = false; unsubscribe(); };
   }, [clearLocalSession]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
+  const beginSession = useCallback(async (authenticate: () => Promise<AuthLoginResponse>) => {
     const expected = ++transition.current;
     let warning = await cleanup.current;
     if (warning) warning = await clearLocalSession();
     if (warning) throw new Error(`${warning} Não foi possível iniciar outra sessão com segurança. Tente novamente.`);
     if (expected !== transition.current) throw new Error('O login foi cancelado. Tente novamente.');
-    const result = await loginOnApi(email, password);
+    const result = await authenticate();
     try {
       if (expected !== transition.current) throw new Error('O login foi cancelado. Tente novamente.');
       await saveAccessToken(result.accessToken);
       if (expected !== transition.current) throw new Error('O login foi cancelado. Tente novamente.');
     } catch {
-      try { await logoutOnApi(result.accessToken); } catch { /* servidor expira a sessão */ }
+      try { await logoutOnApi(result.accessToken); } catch { }
       throw new Error('Não foi possível proteger a sessão neste aparelho. Login cancelado.');
     }
     setUser(result.user);
     setStartupMessage(null);
   }, [clearLocalSession]);
+
+  const signIn = useCallback(
+    (email: string, password: string) => beginSession(() => loginOnApi(email, password)),
+    [beginSession],
+  );
+
+  const signInWithGoogle = useCallback(async () => {
+    const idToken = await requestGoogleIdToken();
+    if (!idToken) return false;
+    try {
+      await beginSession(() => loginWithGoogleOnApi(idToken));
+    } catch (error) {
+      void signOutFromGoogle().catch(() => undefined);
+      throw error;
+    }
+    return true;
+  }, [beginSession]);
 
   const signUp = useCallback(async (name: string, email: string, password: string) => {
     await registerOnApi(name, email, password);
@@ -104,7 +130,7 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
     const expected = ++transition.current;
     const token = getAccessToken();
     const localCleanup = clearLocalSession();
-    // Hide private state immediately; warnings live in the provider/login screen.
+    void signOutFromGoogle().catch(() => undefined);
     setUser(null);
     setStartupMessage(null);
     const [warning, remote] = await Promise.all([
@@ -119,8 +145,8 @@ export function AuthSessionProvider({ children }: PropsWithChildren) {
   }, [clearLocalSession]);
 
   const value = useMemo(() => ({
-    user, initializing, startupMessage, signIn, signUp, signOut,
-  }), [user, initializing, startupMessage, signIn, signUp, signOut]);
+    user, initializing, startupMessage, signIn, signInWithGoogle, signUp, signOut,
+  }), [user, initializing, startupMessage, signIn, signInWithGoogle, signUp, signOut]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
