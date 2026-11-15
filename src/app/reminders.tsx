@@ -8,7 +8,7 @@ import { useAppSettings } from '@/context/app-settings';
 import { getAppPalette } from '@/constants/app-palette';
 import { useReminderSession } from '@/context/reminder-session';
 import { VOX_API_BASE_URL } from '@/services/vox-api';
-import { listReminders, type ApiReminder } from '@/services/reminders-api';
+import { completeReminder, listReminders, type ApiReminder } from '@/services/reminders-api';
 import { formatRemindAt, isOverdue, priorityLabel, sortReminders } from '@/utils/reminder-format';
 
 function formatDateTime(date: string | null, time: string | null) {
@@ -27,6 +27,22 @@ export default function RemindersScreen() {
   const [listError, setListError] = useState('');
   const loadSeq = useRef(0);
   const savedId = lastSaved?.id;
+  const [completingId, setCompletingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState('');
+
+  async function handleComplete(id: string) {
+    if (completingId) return;
+    setCompletingId(id);
+    setActionError('');
+    try {
+      await completeReminder(id);
+      setReminders((current) => current.filter((item) => item.id !== id));
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Não foi possível concluir o lembrete.');
+    } finally {
+      setCompletingId(null);
+    }
+  }
 
   const loadReminders = useCallback(async (signal?: AbortSignal) => {
     const seq = ++loadSeq.current; // descarta respostas de pedidos antigos
@@ -44,6 +60,7 @@ export default function RemindersScreen() {
     }
   }, []);
 
+
   // Ao entrar na tela (e cancela se sair no meio do pedido).
   useFocusEffect(useCallback(() => {
     const controller = new AbortController();
@@ -51,26 +68,26 @@ export default function RemindersScreen() {
     return () => controller.abort();
   }, [loadReminders]));
 
-// Quando o compositor salva um lembrete novo, busca a lista de novo.
-useEffect(() => {
-  if (!savedId) return undefined;
-  const controller = new AbortController();
-  const seq = ++loadSeq.current;
-  listReminders('ACTIVE', { signal: controller.signal })
-    .then((list) => {
-      if (seq !== loadSeq.current) return;
-      setReminders(sortReminders(list));
-      setListError('');
-    })
-    .catch((error) => {
-      if (seq !== loadSeq.current || controller.signal.aborted) return;
-      setListError(error instanceof Error ? error.message : 'Não foi possível carregar seus lembretes.');
-    })
-    .finally(() => {
-      if (seq === loadSeq.current && !controller.signal.aborted) setListLoading(false);
-    });
-  return () => controller.abort();
-}, [savedId]);  const [entrance] = useState(() => new Animated.Value(0));
+  // Quando o compositor salva um lembrete novo, busca a lista de novo.
+  useEffect(() => {
+    if (!savedId) return undefined;
+    const controller = new AbortController();
+    const seq = ++loadSeq.current;
+    listReminders('ACTIVE', { signal: controller.signal })
+      .then((list) => {
+        if (seq !== loadSeq.current) return;
+        setReminders(sortReminders(list));
+        setListError('');
+      })
+      .catch((error) => {
+        if (seq !== loadSeq.current || controller.signal.aborted) return;
+        setListError(error instanceof Error ? error.message : 'Não foi possível carregar seus lembretes.');
+      })
+      .finally(() => {
+        if (seq === loadSeq.current && !controller.signal.aborted) setListLoading(false);
+      });
+    return () => controller.abort();
+  }, [savedId]); const [entrance] = useState(() => new Animated.Value(0));
   const scrollRef = useRef<ScrollView>(null);
   useFocusEffect(useCallback(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -194,6 +211,10 @@ useEffect(() => {
               <Text accessibilityLiveRegion="polite" style={[styles.statusMessage, { color: '#C6535D' }]}>{listError}</Text>
             ) : null}
 
+            {actionError ? (
+              <Text accessibilityLiveRegion="polite" style={[styles.statusMessage, { color: '#C6535D' }]}>{actionError}</Text>
+            ) : null}
+
             {!listLoading && !listError && reminders.length === 0 ? (
               <View style={[styles.emptyState, { backgroundColor: colors.surfaceVariant }]}>
                 <Text style={[styles.emptyTitle, { color: colors.text }]}>Nenhum lembrete ativo</Text>
@@ -223,7 +244,21 @@ useEffect(() => {
                         </View>
                       ) : null}
                     </View>
+                    {reminder.recurrence === 'ONCE' ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Concluir lembrete ${reminder.title}`}
+                        disabled={completingId !== null}
+                        android_ripple={{ color: colors.accentContainer }}
+                        onPress={() => void handleComplete(reminder.id)}
+                        style={[styles.completeButton, { backgroundColor: colors.accentContainer }, completingId !== null && styles.disabled]}>
+                        {completingId === reminder.id
+                          ? <ActivityIndicator size="small" color={colors.onAccentContainer} />
+                          : <Text style={[styles.checkButtonText, { color: colors.onAccentContainer }]}>✓ Concluir</Text>}
+                      </Pressable>
+                    ) : null}
                   </View>
+
                 );
               })}
             </View>
@@ -285,4 +320,5 @@ const styles = StyleSheet.create({
   reminderRow: { borderRadius: 18, padding: 14, gap: 6 },
   rowTitle: { fontSize: 15, fontWeight: '800' },
   refreshButton: { minHeight: 44, minWidth: 88, paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center', borderRadius: 16 },
+  completeButton: { minHeight: 44, alignSelf: 'flex-start', paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center', borderRadius: 16, marginTop: 6 },
 });

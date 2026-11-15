@@ -85,3 +85,47 @@ export async function listReminders(
   }
   return payload.map(parseReminder).filter((r): r is ApiReminder => r !== null);
 }
+async function sendAuthorized(
+  path: string,
+  method: 'PATCH',
+  signal?: AbortSignal,
+): Promise<{ response: Response; payload: unknown; token: string }> {
+  const token = getAccessToken();
+  if (!token) throw new VoxApiHttpError(401, 'Entre na sua conta para continuar.');
+
+  try {
+    const { response, payload } = await requestJson(
+      `${API_BASE_URL}${path}`,
+      { method, headers: { Accept: 'application/json', Authorization: `Bearer ${token}` }, signal },
+      { timeoutMs: API_TIMEOUT_MS },
+    );
+    return { response, payload, token };
+  } catch (error) {
+    if (error instanceof HttpTransportError && error.kind === 'cancelled') throw error;
+    if (error instanceof HttpTransportError && error.kind === 'timeout') {
+      throw new Error(`A Agenda API não respondeu a tempo (${API_BASE_URL}).`);
+    }
+    throw new Error(`Não foi possível conectar à Agenda API (${API_BASE_URL}). ${connectionHint()}`);
+  }
+}
+
+export async function completeReminder(id: string, options: { signal?: AbortSignal } = {}): Promise<void> {
+  const { response, payload, token } = await sendAuthorized(
+    `/reminders/${encodeURIComponent(id)}/complete`,
+    'PATCH',
+    options.signal,
+  );
+  if (response.status === 401) {
+    expireSessionIfCurrent(token);
+    throw new VoxApiHttpError(401, 'Sua sessão expirou. Entre novamente.');
+  }
+  if (response.status === 404) {
+    throw new VoxApiHttpError(404, 'Esse lembrete não existe mais. Atualize a lista.');
+  }
+  if (!response.ok) {
+    throw new VoxApiHttpError(
+      response.status,
+      apiErrorMessage(payload, `A Agenda API respondeu com HTTP ${response.status}.`),
+    );
+  }
+}
