@@ -1,5 +1,5 @@
 import { ActivityIndicator, Animated, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,6 +8,8 @@ import { useAppSettings } from '@/context/app-settings';
 import { getAppPalette } from '@/constants/app-palette';
 import { useReminderSession } from '@/context/reminder-session';
 import { VOX_API_BASE_URL } from '@/services/vox-api';
+import { listReminders, type ApiReminder } from '@/services/reminders-api';
+import { formatRemindAt, isOverdue, priorityLabel, sortReminders } from '@/utils/reminder-format';
 
 function formatDateTime(date: string | null, time: string | null) {
   if (!date || !time) return 'Data ou horário não identificados';
@@ -20,7 +22,55 @@ export default function RemindersScreen() {
   const { settings, animationsEnabled } = useAppSettings();
   const colors = getAppPalette(settings);
   const { lastSaved, apiChecking, apiStatus, apiStatusMessage, checkConnection } = useReminderSession();
-  const [entrance] = useState(() => new Animated.Value(0));
+  const [reminders, setReminders] = useState<ApiReminder[]>([]);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState('');
+  const loadSeq = useRef(0);
+  const savedId = lastSaved?.id;
+
+  const loadReminders = useCallback(async (signal?: AbortSignal) => {
+    const seq = ++loadSeq.current; // descarta respostas de pedidos antigos
+    setListLoading(true);
+    setListError('');
+    try {
+      const list = await listReminders('ACTIVE', { signal });
+      if (seq !== loadSeq.current) return;
+      setReminders(sortReminders(list));
+    } catch (error) {
+      if (seq !== loadSeq.current || signal?.aborted) return;
+      setListError(error instanceof Error ? error.message : 'Não foi possível carregar seus lembretes.');
+    } finally {
+      if (seq === loadSeq.current && !signal?.aborted) setListLoading(false);
+    }
+  }, []);
+
+  // Ao entrar na tela (e cancela se sair no meio do pedido).
+  useFocusEffect(useCallback(() => {
+    const controller = new AbortController();
+    void loadReminders(controller.signal);
+    return () => controller.abort();
+  }, [loadReminders]));
+
+// Quando o compositor salva um lembrete novo, busca a lista de novo.
+useEffect(() => {
+  if (!savedId) return undefined;
+  const controller = new AbortController();
+  const seq = ++loadSeq.current;
+  listReminders('ACTIVE', { signal: controller.signal })
+    .then((list) => {
+      if (seq !== loadSeq.current) return;
+      setReminders(sortReminders(list));
+      setListError('');
+    })
+    .catch((error) => {
+      if (seq !== loadSeq.current || controller.signal.aborted) return;
+      setListError(error instanceof Error ? error.message : 'Não foi possível carregar seus lembretes.');
+    })
+    .finally(() => {
+      if (seq === loadSeq.current && !controller.signal.aborted) setListLoading(false);
+    });
+  return () => controller.abort();
+}, [savedId]);  const [entrance] = useState(() => new Animated.Value(0));
   const scrollRef = useRef<ScrollView>(null);
   useFocusEffect(useCallback(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -49,79 +99,140 @@ export default function RemindersScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         <Animated.View style={[styles.animatedContent, { opacity: entrance, transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }]}>
-        <View style={styles.heading}>
-          <Text style={[styles.eyebrow, { color: colors.accent }]}>SYNAPSE · ORGANIZAÇÃO</Text>
-          <Text style={[styles.title, { color: colors.text }]}>Seus lembretes</Text>
-          <Text style={[styles.subtitle, { color: colors.muted }]}>Consulte o resultado mais recente e acompanhe a conexão com a Agenda API.</Text>
-        </View>
+          <View style={styles.heading}>
+            <Text style={[styles.eyebrow, { color: colors.accent }]}>SYNAPSE · ORGANIZAÇÃO</Text>
+            <Text style={[styles.title, { color: colors.text }]}>Seus lembretes</Text>
+            <Text style={[styles.subtitle, { color: colors.muted }]}>Veja seus lembretes ativos e acompanhe a conexão com a Agenda API</Text>
+          </View>
 
-        <View style={[styles.dashboard, isWide && styles.dashboardWide]}>
-          <View style={[styles.card, styles.savedCard, isWide && styles.wideCard, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
-            <View style={styles.cardHeader}>
-              <View style={[styles.iconBubble, { backgroundColor: colors.accentContainer }]}>
-                <Text style={[styles.iconGlyph, { color: colors.onAccentContainer }]}>✓</Text>
-              </View>
-              <View style={styles.cardHeading}>
-                <Text style={[styles.cardTitle, { color: colors.text }]}>Último lembrete salvo</Text>
-                <Text style={[styles.cardCaption, { color: colors.muted }]}>Resultado mais recente desta sessão</Text>
-              </View>
-            </View>
-            {lastSaved ? (
-              <View style={styles.savedDetails}>
-                <Text style={[styles.reminderTitle, { color: colors.text }]}>{lastSaved.title}</Text>
-                <Text style={[styles.reminderMeta, { color: colors.accent }]}>{formatDateTime(lastSaved.date, lastSaved.time)}</Text>
-                <Text style={[styles.reminderOriginal, { color: colors.muted }]}>{lastSaved.text}</Text>
-                <View style={styles.chips}>
-                  <View style={[styles.chip, { backgroundColor: colors.accentContainer }]}><Text style={[styles.chipText, { color: colors.onAccentContainer }]}>{lastSaved.domain}</Text></View>
-                  <View style={[styles.chip, { backgroundColor: colors.surfaceVariant }]}><Text style={[styles.chipText, { color: colors.text }]}>Prioridade {lastSaved.priority}</Text></View>
+          <View style={[styles.dashboard, isWide && styles.dashboardWide]}>
+            <View style={[styles.card, styles.savedCard, isWide && styles.wideCard, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
+              <View style={styles.cardHeader}>
+                <View style={[styles.iconBubble, { backgroundColor: colors.accentContainer }]}>
+                  <Text style={[styles.iconGlyph, { color: colors.onAccentContainer }]}>✓</Text>
+                </View>
+                <View style={styles.cardHeading}>
+                  <Text style={[styles.cardTitle, { color: colors.text }]}>Último lembrete salvo</Text>
+                  <Text style={[styles.cardCaption, { color: colors.muted }]}>Resultado mais recente desta sessão</Text>
                 </View>
               </View>
-            ) : (
-              <View style={[styles.emptyState, { backgroundColor: colors.surfaceVariant }]}>
-                <Text style={[styles.emptyTitle, { color: colors.text }]}>Seu próximo lembrete aparece aqui</Text>
-                <Text style={[styles.emptyDescription, { color: colors.muted }]}>Após enviar uma mensagem pelo campo abaixo, os dados interpretados pela API aparecerão aqui.</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Criar novo lembrete"
-                  android_ripple={{ color: colors.accentContainer }}
-                  onPress={() => router.navigate({ pathname: '/reminders', params: { focusComposer: String(Date.now()) } } as never)}
-                  style={[styles.inlineButton, { backgroundColor: colors.accentContainer }]}>
-                  <Text style={[styles.inlineButtonText, { color: colors.onAccentContainer }]}>+ Criar lembrete</Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
+              {lastSaved ? (
+                <View style={styles.savedDetails}>
+                  <Text style={[styles.reminderTitle, { color: colors.text }]}>{lastSaved.title}</Text>
+                  <Text style={[styles.reminderMeta, { color: colors.accent }]}>{formatDateTime(lastSaved.date, lastSaved.time)}</Text>
+                  <Text style={[styles.reminderOriginal, { color: colors.muted }]}>{lastSaved.text}</Text>
+                  <View style={styles.chips}>
+                    <View style={[styles.chip, { backgroundColor: colors.accentContainer }]}><Text style={[styles.chipText, { color: colors.onAccentContainer }]}>{lastSaved.domain}</Text></View>
+                    <View style={[styles.chip, { backgroundColor: colors.surfaceVariant }]}><Text style={[styles.chipText, { color: colors.text }]}>Prioridade {lastSaved.priority}</Text></View>
+                  </View>
+                </View>
+              ) : (
+                <View style={[styles.emptyState, { backgroundColor: colors.surfaceVariant }]}>
+                  <Text style={[styles.emptyTitle, { color: colors.text }]}>Seu próximo lembrete aparece aqui</Text>
+                  <Text style={[styles.emptyDescription, { color: colors.muted }]}>Após enviar uma mensagem pelo campo abaixo, os dados interpretados pela API aparecerão aqui.</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Criar novo lembrete"
+                    android_ripple={{ color: colors.accentContainer }}
+                    onPress={() => router.navigate({ pathname: '/reminders', params: { focusComposer: String(Date.now()) } } as never)}
+                    style={[styles.inlineButton, { backgroundColor: colors.accentContainer }]}>
+                    <Text style={[styles.inlineButtonText, { color: colors.onAccentContainer }]}>+ Criar lembrete</Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
 
-          <View style={[styles.card, isWide && styles.wideCard, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
+            <View style={[styles.card, isWide && styles.wideCard, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
+              <View style={styles.cardHeader}>
+                <View style={[styles.iconBubble, { backgroundColor: colors.accentContainer }]}>
+                  <Text style={[styles.iconGlyph, { color: colors.onAccentContainer }]}>↗</Text>
+                </View>
+                <View style={styles.cardHeading}>
+                  <Text style={[styles.cardTitle, { color: colors.text }]}>Conexão com a API</Text>
+                  <Text style={[styles.cardCaption, { color: colors.muted }]}>Verificação automática de disponibilidade</Text>
+                </View>
+                <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+              </View>
+              <Text accessibilityLiveRegion="polite" style={[styles.statusMessage, { color: colors.muted }]}>{apiStatusMessage}</Text>
+              <Text selectable style={[styles.endpoint, { color: colors.muted }]} numberOfLines={3}>{VOX_API_BASE_URL}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Testar conexão com a Agenda API"
+                disabled={apiChecking}
+                android_ripple={{ color: colors.accentContainer }}
+                onPress={() => void checkConnection()}
+                style={[styles.checkButton, { backgroundColor: colors.accentContainer }, apiChecking && styles.disabled]}>
+                {apiChecking ? <ActivityIndicator size="small" color={colors.onAccentContainer} /> : <Text style={[styles.checkButtonText, { color: colors.onAccentContainer }]}>Testar conexão</Text>}
+              </Pressable>
+            </View>
+          </View>
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
             <View style={styles.cardHeader}>
               <View style={[styles.iconBubble, { backgroundColor: colors.accentContainer }]}>
-                <Text style={[styles.iconGlyph, { color: colors.onAccentContainer }]}>↗</Text>
+                <Text style={[styles.iconGlyph, { color: colors.onAccentContainer }]}>≡</Text>
               </View>
               <View style={styles.cardHeading}>
-                <Text style={[styles.cardTitle, { color: colors.text }]}>Conexão com a API</Text>
-                <Text style={[styles.cardCaption, { color: colors.muted }]}>Verificação automática de disponibilidade</Text>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>Lembretes ativos</Text>
+                <Text style={[styles.cardCaption, { color: colors.muted }]}>
+                  {listLoading ? 'Carregando…' : `${reminders.length} ${reminders.length === 1 ? 'lembrete' : 'lembretes'}`}
+                </Text>
               </View>
-              <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Atualizar lista de lembretes"
+                disabled={listLoading}
+                android_ripple={{ color: colors.accentContainer }}
+                onPress={() => void loadReminders()}
+                style={[styles.refreshButton, { backgroundColor: colors.accentContainer }, listLoading && styles.disabled]}>
+                {listLoading
+                  ? <ActivityIndicator size="small" color={colors.onAccentContainer} />
+                  : <Text style={[styles.checkButtonText, { color: colors.onAccentContainer }]}>Atualizar</Text>}
+              </Pressable>
             </View>
-            <Text accessibilityLiveRegion="polite" style={[styles.statusMessage, { color: colors.muted }]}>{apiStatusMessage}</Text>
-            <Text selectable style={[styles.endpoint, { color: colors.muted }]} numberOfLines={3}>{VOX_API_BASE_URL}</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Testar conexão com a Agenda API"
-              disabled={apiChecking}
-              android_ripple={{ color: colors.accentContainer }}
-              onPress={() => void checkConnection()}
-              style={[styles.checkButton, { backgroundColor: colors.accentContainer }, apiChecking && styles.disabled]}>
-              {apiChecking ? <ActivityIndicator size="small" color={colors.onAccentContainer} /> : <Text style={[styles.checkButtonText, { color: colors.onAccentContainer }]}>Testar conexão</Text>}
-            </Pressable>
-          </View>
-        </View>
 
-        <View style={[styles.tipCard, { backgroundColor: colors.accentSoft }]}>
-          <Text style={[styles.tipTitle, { color: colors.accent }]}>Uma dica para começar</Text>
-          <Text style={[styles.tipText, { color: colors.text }]}>Experimente: “Me lembre de ligar para a Ana amanhã às 10h”. Revise o texto e envie — o Synapse interpreta a data e o horário.</Text>
-        </View>
-        <Text style={[styles.footer, { color: colors.muted }]}>Este painel apresenta o último lembrete desta sessão. Uma lista histórica depende de uma rota de consulta de lembretes no backend.</Text>
+            {listError ? (
+              <Text accessibilityLiveRegion="polite" style={[styles.statusMessage, { color: '#C6535D' }]}>{listError}</Text>
+            ) : null}
+
+            {!listLoading && !listError && reminders.length === 0 ? (
+              <View style={[styles.emptyState, { backgroundColor: colors.surfaceVariant }]}>
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>Nenhum lembrete ativo</Text>
+                <Text style={[styles.emptyDescription, { color: colors.muted }]}>Use o campo abaixo para criar o primeiro por texto ou voz.</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.reminderList}>
+              {reminders.map((reminder) => {
+                const overdue = isOverdue(reminder.remindAt);
+                return (
+                  <View key={reminder.id} style={[styles.reminderRow, { backgroundColor: colors.surfaceVariant }]}>
+                    <Text style={[styles.rowTitle, { color: colors.text }]}>{reminder.title}</Text>
+                    <Text style={[styles.reminderMeta, { color: overdue ? '#C6535D' : colors.accent }]}>
+                      {formatRemindAt(reminder.remindAt)}{overdue ? ' · atrasado' : ''}
+                    </Text>
+                    {reminder.description ? (
+                      <Text numberOfLines={2} style={[styles.reminderOriginal, { color: colors.muted }]}>{reminder.description}</Text>
+                    ) : null}
+                    <View style={styles.chips}>
+                      <View style={[styles.chip, { backgroundColor: colors.accentContainer }]}>
+                        <Text style={[styles.chipText, { color: colors.onAccentContainer }]}>Prioridade {priorityLabel(reminder.priority)}</Text>
+                      </View>
+                      {reminder.recurrence !== 'ONCE' ? (
+                        <View style={[styles.chip, { backgroundColor: colors.surface }]}>
+                          <Text style={[styles.chipText, { color: colors.text }]}>Repete</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+          <View style={[styles.tipCard, { backgroundColor: colors.accentSoft }]}>
+            <Text style={[styles.tipTitle, { color: colors.accent }]}>Uma dica para começar</Text>
+            <Text style={[styles.tipText, { color: colors.text }]}>Experimente: “Me lembre de ligar para a Ana amanhã às 10h”. Revise o texto e envie — o Synapse interpreta a data e o horário.</Text>
+          </View>
+          <Text style={[styles.footer, { color: colors.muted }]}>Este painel apresenta o último lembrete desta sessão. Uma lista histórica depende de uma rota de consulta de lembretes no backend. por A lista mostra os lembretes ativos. Concluir, editar e filtrar por categoria chegam nas próximas etapas.</Text>
         </Animated.View>
       </ScrollView>
     </SafeAreaView>
@@ -170,4 +281,8 @@ const styles = StyleSheet.create({
   tipText: { fontSize: 12, lineHeight: 19 },
   footer: { fontSize: 11, lineHeight: 17, paddingHorizontal: 4 },
   disabled: { opacity: 0.6 },
+  reminderList: { gap: 10 },
+  reminderRow: { borderRadius: 18, padding: 14, gap: 6 },
+  rowTitle: { fontSize: 15, fontWeight: '800' },
+  refreshButton: { minHeight: 44, minWidth: 88, paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center', borderRadius: 16 },
 });
